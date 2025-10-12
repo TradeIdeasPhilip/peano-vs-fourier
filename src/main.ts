@@ -5,11 +5,10 @@ import {
   querySelectorAll,
 } from "phil-lib/client-misc";
 import "./style.css";
-import { sum, type ReadOnlyRect } from "phil-lib/misc";
-import { panAndZoom } from "./glib/transforms";
+import { type ReadOnlyRect } from "phil-lib/misc";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { Font } from "./glib/letters-base";
-import { createHandwritingGroup } from "./glib/handwriting";
+import { createHandwriting } from "./glib/handwriting";
 
 const numberOfFourierSamples = 1024;
 
@@ -183,20 +182,17 @@ const path = pathShape.makeElement();
 mainSVG.append(path);
 path.classList.add("simple-text");
 
-const handwriting = createHandwritingGroup(pathShape);
-mainSVG.append(handwriting.topElement);
-handwriting.topElement.classList.add("simple-text");
-handwriting.topElement.style.transform = `translateY(${laidOut.height}px)`;
 const delayBeforeDraw = 500;
 const timeToDraw = 3000;
 const period = 4000;
-const updateHandwriting = handwriting.makeUpdater(delayBeforeDraw, timeToDraw);
+const handwriting = createHandwriting(delayBeforeDraw, timeToDraw, pathShape);
+mainSVG.append(handwriting.topElement);
+handwriting.topElement.classList.add("simple-text");
+handwriting.topElement.style.transform = `translateY(${laidOut.height}px)`;
 new MainAnimation({
   show(timeInMs) {
     timeInMs %= period;
-    updateHandwriting(timeInMs);
+    handwriting.show(timeInMs);
   },
   endTime: Infinity,
 });
-
-

@@ -2,11 +2,6 @@ import { sum } from "phil-lib/misc";
 import { DescriptionOfLetter, Font } from "./letters-base";
 import { PathShape } from "./path-shape";
 
-type LetterInfo = {
-  x: number;
-  readonly description: DescriptionOfLetter;
-};
-
 class WordInfo {
   readonly top: number;
   readonly bottom: number;
