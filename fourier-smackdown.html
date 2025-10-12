@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>👋 fourier-smackdown</title>
+    <script type="module" src="/src/fourier-smackdown.ts"></script>
+  </head>
+  <body>
+    <canvas
+      id="backgroundCanvas"
+      class="backgroundCanvas"
+      width="3840"
+      height="2160"
+    ></canvas>
+    <canvas
+      id="cache"
+      class="backgroundCanvas"
+      height="2160"
+      width="3840"
+    ></canvas>
+    <svg
+      id="main"
+      viewBox="0 0 16 9"
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="xMinYMin meet"
+    >
+      <defs>
+        <filter
+          id="anti-anti-alias"
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          color-interpolation-filters="sRGB"
+        >
+          <feComponentTransfer>
+            <feFuncR type="identity" />
+            <feFuncG type="identity" />
+            <feFuncB type="identity" />
+            <feFuncA type="discrete" tableValues="0 1" />
+          </feComponentTransfer>
+        </filter>
+        <pattern
+          id="checkerboard"
+          width="2"
+          height="2"
+          patternUnits="userSpaceOnUse"
+        >
+          <rect x="0" y="0" width="1" height="1" fill="black" />
+          <rect x="1" y="1" width="1" height="1" fill="black" />
+        </pattern>
+        <filter
+          id="checkerboard-alpha-broken"
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          color-interpolation-filters="sRGB"
+          filterUnits="userSpaceOnUse"
+        >
+          <feImage
+            xlink:href="#checkerboard"
+            width="2"
+            height="2"
+            result="pattern"
+          />
+          <!--         <feTile in="pattern" result="tiled" />
+          <feComposite
+            in="tiled"
+            in2="SourceGraphic"
+            operator="in"
+            result="checkerboard"
+          /> 
+          <feComponentTransfer in="checkerboard">
+            <feFuncR type="identity" />
+            <feFuncG type="identity" />
+            <feFuncB type="identity" />
+            <feFuncA type="discrete" tableValues="0 1" />
+          </feComponentTransfer>  -->
+        </filter>
+        <filter
+          id="checkerboard-alpha"
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          color-interpolation-filters="sRGB"
+          filterUnits="userSpaceOnUse"
+        >
+          <!-- Create a 2x2 black pixel grid -->
+          <feFlood
+            flood-color="black"
+            flood-opacity="1"
+            x="0"
+            y="0"
+            width="1"
+            height="1"
+            result="pixel1"
+          />
+          <feFlood
+            flood-color="black"
+            flood-opacity="1"
+            x="1"
+            y="1"
+            width="1"
+            height="1"
+            result="pixel2"
+          />
+          <!-- Merge the two black pixels (other areas remain transparent) -->
+          <feMerge result="checkerboard">
+            <feMergeNode in="pixel1" />
+            <feMergeNode in="pixel2" />
+          </feMerge>
+          <!-- Tile the 2x2 checkerboard -->
+          <feTile in="checkerboard" result="tiled" />
+          <!-- Apply to source graphic's alpha -->
+          <feComposite
+            in="tiled"
+            in2="SourceGraphic"
+            operator="in"
+            result="dithered"
+          />
+          <!-- Anti-alias for pixelated effect -->
+          <feComponentTransfer in="dithered">
+            <feFuncR type="identity" />
+            <feFuncG type="identity" />
+            <feFuncB type="identity" />
+            <feFuncA type="discrete" tableValues="0 1" />
+          </feComponentTransfer>
+        </filter>
+        <filter
+          id="lava-lamp"
+          color-interpolation-filters="sRGB"
+          filterUnits="objectBoundingBox"
+          x="0"
+          y="0"
+          width="1"
+          height="1"
+          primitiveUnits="userSpaceOnUse"
+        >
+          <!-- Ignore the input image.  Start with pure noise. -->
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.3 0.4"
+            numOctaves="1"
+            seed="1973"
+            stitchTiles="stitch"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+          />
+          <!-- Combine three of the channels of noise into a single channel.
+
+               For a static image this didn't make an interesting difference.
+               More precisely, the images were different, but I couldn't reliably 
+               tell you which image came from from just one chanel and which came
+               from a combination of channels.  That's very promising for my
+               intended purpose.  I plan to smoothly animate these values over time!
+               
+               I tweaked these values so I'd get some of the brightest and some of the
+               darkest color on the screen.  This seems robust over a number of
+               different choices for the random seed.  I did not ignore the alpha
+               channel's noise for any good reason; I just forgot it existed.
+               
+               I pegged the output alpha to 1.
+
+               I'm *currently* ignoring the blue and green output channels.
+               All of the interesting data is in the red channel.
+               -->
+          <feColorMatrix
+            type="matrix"
+            values="1.2 0.3 -0.3 0 -0.105
+0 0 0 0 0
+0 0 0 0 0
+0 0 0 0 1"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+          />
+          <!-- This step could easily be handled by the TypeScript code.
+               Adding an extra matrix was helpful when I was creating the SVG by hand.
+               Copy the red input channel to be the output of red, of green, and of blue.
+               Alpha stays pegged at 1.
+               
+               The output of this stage is a completely opaque, grayscale noise. -->
+          <feColorMatrix
+            type="matrix"
+            values="1 0 0 0 0
+1 0 0 0 0
+1 0 0 0 0
+0 0 0 0 1"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+          />
+          <!-- Remove most of those odd artifacts I get when I zoom in too close to noise.
+
+               I fixed that in the past by using the canvas in display-p3 mode, but I was unable
+               to repeat that trick here, and I'm not sure why.
+
+               This works very well.  It was easy to select a value for stdDeviation.
+          -->
+          <feGaussianBlur stdDeviation="0.05" />
+          <!-- 
+          // This was my fist attempt at cleaning up the artifacts.  This uses a 2 x 2 kernel
+          // because I thought the problem was limited to single pixels.  But as I started
+          // tweaking other things, the artifacts grew and this solution was insufficient.
+          // The <feGaussianBlur /> solution is much. more robust.
+     <feConvolveMatrix
+          order="2"
+          kernelMatrix="0.25 0.25 0.25 0.25"
+          divisor="1"
+          bias="0"
+          targetX="0"
+          targetY="0"
+          edgeMode="duplicate"
+          preserveAlpha="true"
+        />
+         -->
+          <!-- This is where I convert from a smooth gradient to discrete levels.
+               And this is where I set the color for each level.
+               
+               The number of table values should be the same for each channel.
+               I've been focused on groups of 7, but any number could work.
+
+               The first entry in the tableValues is the amount of red, green or
+               blue in the first color, the color that will replace the darkest shades
+               of gray in the input.  The values range from 0 to 1.
+
+               This hand made example creates red, green, blue, magenta, yellow, 
+               cyan and white, in that order.  Replace these with any colors you like.
+               -->
+          <feComponentTransfer x="0%" y="0%" width="100%" height="100%">
+            <feFuncR type="discrete" tableValues="1 0 0 1 1 0 1" />
+            <feFuncG type="discrete" tableValues="0 1 0 0 1 1 1" />
+            <feFuncB type="discrete" tableValues="0 0 1 1 0 1 1" />
+            <feFuncA type="linear" slope="0" intercept="1" />
+          </feComponentTransfer>
+        </filter>
+        <filter
+          id="dalmatian"
+          color-interpolation-filters="linearRGB"
+          filterUnits="objectBoundingBox"
+          primitiveUnits="userSpaceOnUse"
+        >
+          <feTurbulence
+            type="turbulence"
+            baseFrequency="7 7"
+            numOctaves="2"
+            seed="13"
+            stitchTiles="stitch"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            result="turbulence"
+          />
+          <feComponentTransfer
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            in="turbulence"
+            result="componentTransfer"
+          >
+            <feFuncR type="linear" slope="0" intercept="0.1" />
+            <feFuncG type="linear" slope="0" intercept="0.1" />
+            <feFuncB type="linear" slope="0" intercept="0.1" />
+            <feFuncA type="discrete" tableValues="0 0 0 1 1" />
+          </feComponentTransfer>
+          <feTurbulence
+            type="turbulence"
+            baseFrequency="6 6"
+            numOctaves="2"
+            seed="4"
+            stitchTiles="stitch"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            result="turbulence1"
+          />
+          <feComponentTransfer
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            in="turbulence1"
+            result="componentTransfer1"
+          >
+            <feFuncR type="linear" slope="0" intercept="0.05" />
+            <feFuncG type="linear" slope="0" intercept="0.05" />
+            <feFuncB type="linear" slope="0" intercept="0.05" />
+            <feFuncA type="discrete" tableValues="0 0 0 1 1" />
+          </feComponentTransfer>
+          <feTurbulence
+            type="turbulence"
+            baseFrequency="5 5"
+            numOctaves="1"
+            seed="42"
+            stitchTiles="stitch"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            result="turbulence2"
+          />
+          <feComponentTransfer
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            in="turbulence2"
+            result="componentTransfer2"
+          >
+            <feFuncR type="linear" slope="0" intercept="0.03" />
+            <feFuncG type="linear" slope="0" intercept="0.03" />
+            <feFuncB type="linear" slope="0" intercept="0.03" />
+            <feFuncA type="discrete" tableValues="0 0 0 1 1" />
+          </feComponentTransfer>
+          <feTurbulence
+            type="turbulence"
+            baseFrequency="5 5"
+            numOctaves="1"
+            seed="44"
+            stitchTiles="stitch"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            result="turbulence3"
+          />
+          <feComponentTransfer
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            in="turbulence3"
+            result="componentTransfer3"
+          >
+            <feFuncR type="linear" slope="0" intercept="0.04" />
+            <feFuncG type="linear" slope="0" intercept="0.04" />
+            <feFuncB type="linear" slope="0" intercept="0.04" />
+            <feFuncA type="discrete" tableValues="0 0 0 1 1" />
+          </feComponentTransfer>
+          <feTurbulence
+            type="turbulence"
+            baseFrequency="5 5"
+            numOctaves="1"
+            seed="149"
+            stitchTiles="stitch"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            result="turbulence4"
+          />
+          <feComponentTransfer
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            in="turbulence4"
+            result="componentTransfer4"
+          >
+            <feFuncR type="linear" slope="0" intercept="0.06" />
+            <feFuncG type="linear" slope="0" intercept="0.06" />
+            <feFuncB type="linear" slope="0" intercept="0.06" />
+            <feFuncA type="discrete" tableValues="0 1" />
+          </feComponentTransfer>
+          <feMerge x="0%" y="0%" width="100%" height="100%" result="merge">
+            <feMergeNode in="componentTransfer4" />
+            <feMergeNode in="componentTransfer3" />
+            <feMergeNode in="componentTransfer2" />
+            <feMergeNode in="componentTransfer1" />
+            <feMergeNode in="componentTransfer" />
+          </feMerge>
+        </filter>
+        <linearGradient
+          id="backgroundGradient"
+          x2="0.3"
+          y2=".6"
+          gradientUnits="userSpaceOnUse"
+          spreadMethod="repeat"
+        >
+          <stop offset="5%" stop-color="#78508C" />
+          <stop offset="95%" stop-color="#502864" />
+        </linearGradient>
+        <linearGradient
+          id="night-sky"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="9"
+          gradientUnits="userSpaceOnUse"
+          spreadMethod="repeat"
+        >
+          <stop offset="0%" stop-color="black"></stop>
+          <stop offset="100%" stop-color="midnightblue"></stop>
+        </linearGradient>
+        <filter
+          id="paint-drops"
+          color-interpolation-filters="sRGB"
+          filterUnits="objectBoundingBox"
+          primitiveUnits="userSpaceOnUse"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="1"
+            numOctaves="2"
+            seed="12"
+            stitchTiles="stitch"
+            result="turbulence"
+          />
+          <feComponentTransfer
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            in="turbulence"
+            result="componentTransfer"
+          >
+            <feFuncR type="discrete" tableValues="0 0.4 0.8" />
+            <feFuncG type="discrete" tableValues="0 0.4 0.8" />
+            <feFuncB type="discrete" tableValues="0 0.4 0.8" />
+            <feFuncA type="linear" slope="1" intercept="1" />
+          </feComponentTransfer>
+        </filter>
+        <filter
+          id="paint-drops-2"
+          color-interpolation-filters="linearRGB"
+          filterUnits="userSpaceOnUse"
+          primitiveUnits="userSpaceOnUse"
+          x="0"
+          y="0"
+          width="16"
+          height="9"
+        >
+          <feTurbulence
+            type="turbulence"
+            baseFrequency="0.36666667"
+            numOctaves="2"
+            seed="31"
+            stitchTiles="stitch"
+            x="0"
+            y="-1"
+            width="16"
+            height="11"
+            result="turbulence"
+          />
+          <feComponentTransfer
+            x="0"
+            y="-1"
+            width="16"
+            height="11"
+            in="turbulence"
+            result="componentTransfer"
+          >
+            <feFuncR type="discrete" tableValues="1  0.6 0.4" />
+            <feFuncG type="discrete" tableValues="1  0.6 0.4" />
+            <feFuncB type="discrete" tableValues="1  0.6 0.4" />
+            <feFuncA type="linear" slope="1" intercept="1" />
+          </feComponentTransfer>
+        </filter>
+        <!-- source: https://yoksel.github.io/svg-filters/#/presets/watercolor -->
+        <filter
+          id="watercolor"
+          color-interpolation-filters="sRGB"
+          filterUnits="objectBoundingBox"
+          primitiveUnits="userSpaceOnUse"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.05 0.05"
+            numOctaves="5"
+            seed="1"
+            stitchTiles="stitch"
+            result="turbulence"
+          />
+          <feDiffuseLighting
+            surfaceScale="0.5"
+            diffuseConstant="3.2"
+            lighting-color="#ffffff"
+            in="turbulence"
+            result="diffuseLighting"
+          >
+            <feDistantLight azimuth="150" elevation="16" />
+          </feDiffuseLighting>
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.011 0.004"
+            numOctaves="2"
+            seed="7"
+            stitchTiles="noStitch"
+            result="turbulence1"
+          />
+          <feColorMatrix
+            type="saturate"
+            values="3"
+            in="turbulence1"
+            result="colormatrix"
+          />
+          <feColorMatrix
+            type="matrix"
+            values="2 0 0 0 0
+0 1.5 0 0 0
+0 0 2 0 0
+0 0 0 2 0"
+            in="colormatrix"
+            result="colormatrix1"
+          />
+          <feBlend
+            mode="multiply"
+            in="diffuseLighting"
+            in2="colormatrix1"
+            result="blend"
+          />
+          <feComposite
+            in="blend"
+            in2="SourceAlpha"
+            operator="in"
+            result="composite1"
+          />
+        </filter>
+        <filter
+          id="noiseFilter"
+          filterUnits="userSpaceOnUse"
+          x="-0.1"
+          y="-0.1"
+          width="3840.2"
+          height="2160.2"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.015 0.0015"
+            numOctaves="2"
+            stitchTiles="stitch"
+            result="noise"
+            seed="4"
+          />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0" intercept="1" />
+          </feComponentTransfer>
+        </filter>
+        <radialGradient id="stellarGradient">
+          <stop offset="10%" stop-color="white" />
+          <stop offset="25%" stop-color="#FFFFFF20" />
+          <stop offset="100%" stop-color="#FFFFFF00" />
+        </radialGradient>
+        <g data-fourier-top>
+          <g data-inner-transform>
+            <path data-reference></path>
+            <path data-live class="offset-blur"></path>
+            <path data-live class="outline"></path>
+            <path data-live class="main"></path>
+          </g>
+        </g>
+      </defs>
+      <g id="panAndZoomMe">
+        <rect width="16" height="9" fill="black"></rect>
+        <rect
+          data-hide-background
+          x="2"
+          width="12"
+          height="9"
+          fill="cyan"
+        ></rect>
+        <g id="new-starfield">
+          <circle
+            data-favorite
+            cx="2"
+            cy="7"
+            r="0.1"
+            fill="url(#stellarGradient)"
+          ></circle>
+        </g>
+        <g id="line-text"></g>
+        <g id="thumbnail-foreground" style="display: none">
+          <text x="1" y="3.75" letter-spacing="0.2">
+            <tspan>Abc</tspan>
+            <tspan>123</tspan>
+            <tspan>:-)</tspan>
+          </text>
+          <text x="1" y="7.25">
+            <tspan>★</tspan>
+            <tspan>⧫</tspan>
+            <tspan>♠</tspan>
+            <tspan>♠</tspan>
+            <tspan>⧫</tspan>
+            <tspan>★</tspan>
+          </text>
+        </g>
+        <g id="foreground">
+          <line id="for-scale" x1="1" y1="1" x2="15" y2="8"></line>
+          <g id="topText"></g>
+          <g id="right">
+            <path data-reference></path>
+            <path data-live></path>
+          </g>
+          <g data-fourier-top="red">
+            <g data-inner-transform style="/*transform: scaleX(-1)*/">
+              <path data-reference></path>
+              <path
+                data-live
+                style="stroke: silver"
+                filter="drop-shadow(0 0 0.1px silver)"
+              ></path>
+              <path data-live stroke="white"></path>
+            </g>
+          </g>
+          <g data-fourier-top="white">
+            <g data-inner-transform style="/*transform: rotate(30deg)*/">
+              <path data-reference></path>
+              <path
+                data-live
+                style="stroke: yellow"
+                filter="drop-shadow(0 0 0.1px yellow)"
+              ></path>
+              <path data-live stroke="white"></path>
+            </g>
+          </g>
+          <g data-fourier-top="blue">
+            <g data-inner-transform>
+              <path data-reference></path>
+              <path
+                data-live
+                style="stroke: pink"
+                filter="drop-shadow(0 0 0.1px pink)"
+              ></path>
+              <path data-live stroke="white"></path>
+            </g>
+          </g>
+          <g data-frequencies="red" class="frequencies">
+            <g class="frequency">
+              <polygon class="spinner" points="2,1 1.5,3 2.5,3"></polygon>
+              <text x="3.75" y="1.75" style="fill: var(--darker-blue)">-3</text>
+            </g>
+            <g class="frequency">
+              <polygon class="spinner" points="2,1 1.5,3 2.5,3"></polygon>
+              <text x="3.75" y="3.5" style="fill: var(--darker-purple)">
+                -3
+              </text>
+            </g>
+            <g class="frequency">
+              <polygon class="spinner" points="2,1 1.5,3 2.5,3"></polygon>
+              <text x="5.75" y="1.75" style="fill: var(--darker-pink)">-3</text>
+            </g>
+            <g class="frequency">
+              <polygon class="spinner" points="2,1 1.5,3 2.5,3"></polygon>
+              <text x="7.75" y="1.75" style="fill: var(--darker-teal)">-3</text>
+            </g>
+            <g class="frequency">
+              <polygon class="spinner" points="2,1 1.5,3 2.5,3"></polygon>
+              <text x="9.75" y="1.75" style="fill: var(--darker-coral)">
+                -3
+              </text>
+            </g>
+          </g>
+          <text
+            id="chapterList"
+            class="chapter"
+            x="0.35"
+            y="8.6"
+            style="text-anchor: start; fill: white"
+          >
+            #64&nbsp; of&nbsp; 66
+          </text>
+        </g>
+      </g>
+    </svg>
+    <div data-motion-blur-spinners></div>
+    <canvas id="cga" width="320" height="200"></canvas>
+  </body>
+</html>
