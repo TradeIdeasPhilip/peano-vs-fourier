@@ -1,4 +1,5 @@
 import { makeLinear } from "phil-lib/misc";
+import { Showable } from "../showable";
 import { PathShape } from "./path-shape";
 
 type Handwriting = {
@@ -21,13 +22,24 @@ type Handwriting = {
    */
   allPaths: SVGPathElement[][];
   /**
-   * Use this to update the animation.
-   * @param time What point in the animation should we draw?
-   * These are scaled to match the inputs to `createHandwriting()`
-   * Values before or at the `fromTime` will display nothing.
-   * Values at or after the `toTime` will display the entire path.
+   * Show the requested state of the animation.
+   * @param progress 0.0 for the beginning, nothing visible.
+   * 1.0 for the end, everything visible.
+   * Values in between are interpolated.
+   * Values are automatically clamped to be withing range.
    */
-  show(time: number): void;
+  show(progress: number): void;
+  /**
+   * The total length of the path, in userspace units.
+   * You might want to make the animation run for time proportional to the length of the path.
+   * So the imaginary pencil in each animation would move at the same speed.
+   */
+  totalLength: number;
+  makeShowable(options: {
+    duration: number;
+    delayBefore?: number;
+    delayAfter?: number;
+  }): Showable;
 };
 
 /**
@@ -37,11 +49,7 @@ type Handwriting = {
  * @param pathShapes What to display.
  * @returns An object used to operate the animation.
  */
-export function createHandwriting(
-  fromTime: number,
-  toTime: number,
-  ...pathShapes: PathShape[]
-): Handwriting {
+export function createHandwriting(...pathShapes: PathShape[]): Handwriting {
   const topElement = document.createElementNS(
     "http://www.w3.org/2000/svg",
     "g"
@@ -66,10 +74,32 @@ export function createHandwriting(
     allPaths.push(paths);
   });
   const totalLength = soFar;
-  const scale = makeLinear(fromTime, 0, toTime, totalLength);
-  function show(time: number) {
-    const position = scale(time);
+  function show(progress: number) {
+    const position = progress * totalLength;
     topElement.style.setProperty("--total-position", position.toString());
   }
-  return { topElement, allPaths, show };
+  function makeShowable(options: {
+    delayBefore?: number;
+    duration: number;
+    delayAfter?: number;
+  }): Showable {
+    const duration = options.duration;
+    const delayBefore = options.delayBefore ?? 0;
+    const delayAfter = options.delayAfter ?? 0;
+    const endTime = delayBefore + duration + delayAfter;
+    const timeToPosition = makeLinear(
+      delayBefore,
+      0,
+      delayBefore + duration,
+      totalLength
+    );
+    return {
+      show(time: number) {
+        const position = timeToPosition(time);
+        topElement.style.setProperty("--total-position", position.toString());
+      },
+      endTime,
+    };
+  }
+  return { topElement, allPaths, show, totalLength, makeShowable };
 }

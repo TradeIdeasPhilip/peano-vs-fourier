@@ -1,14 +1,11 @@
-import {
-  AnimationLoop,
-  getById,
-  querySelector,
-  querySelectorAll,
-} from "phil-lib/client-misc";
+import { getById, querySelector, querySelectorAll } from "phil-lib/client-misc";
 import "./style.css";
 import { type ReadOnlyRect } from "phil-lib/misc";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { Font } from "./glib/letters-base";
 import { createHandwriting } from "./glib/handwriting";
+import { MainAnimation } from "./main-animation";
+import { makeRepeater } from "./showable";
 
 const numberOfFourierSamples = 1024;
 
@@ -70,91 +67,6 @@ class Destination {
   // );
 }
 
-class MainAnimation {
-  readonly #showable: Showable;
-  show(timeInMS: number) {
-    this.#showable.show(timeInMS);
-  }
-  get endTime() {
-    return this.#showable.endTime;
-  }
-  private initScreenCapture(script: unknown) {
-    document
-      .querySelectorAll("[data-hideBeforeScreenshot]")
-      .forEach((element) => {
-        if (
-          !(element instanceof SVGElement || element instanceof HTMLElement)
-        ) {
-          throw new Error("wtf");
-        }
-        element.style.display = "none";
-      });
-    this.disableAnimationLoop();
-    return {
-      source: "peano-vs-fourier",
-      script,
-      seconds: this.#showable.endTime / 1000,
-      devicePixelRatio,
-    };
-  }
-  constructor(showable: Showable) {
-    this.#showable = showable;
-
-    (window as any).showFrame = (timeInMs: number) => {
-      this.show(timeInMs);
-    };
-    (window as any).initScreenCapture = this.initScreenCapture.bind(this);
-    (window as any).MainAnimation = this;
-
-    // Without this setTimeout() the animation would
-    // skip a lot of time in the beginning.  A lot of the setup time
-    // would happen right after the first frame and after our clock
-    // starts.
-    setTimeout(() => {
-      if (this.#disableAnimationLoop) {
-        return;
-      }
-      let timeOffset = NaN;
-      this.#animationLoop = new AnimationLoop((now) => {
-        if (isNaN(timeOffset)) {
-          timeOffset = now;
-        }
-        const time = now - timeOffset;
-        this.show(time);
-      });
-    }, 1);
-  }
-  #disableAnimationLoop = false;
-  #animationLoop: AnimationLoop | undefined;
-  disableAnimationLoop() {
-    this.#disableAnimationLoop = true;
-    this.#animationLoop?.cancel();
-  }
-}
-
-type Showable = { show(timeInMs: number): void; readonly endTime: number };
-
-function makeShowableInParallel(...all: Showable[]): Showable {
-  const endTime = Math.max(...all.map((showable) => showable.endTime));
-  function show(timeInMs: number) {
-    all.forEach((showable) => showable.show(timeInMs));
-  }
-  return { endTime, show };
-}
-
-function makeShowableInSeries(...all: Showable[]): Showable {
-  let start = 0;
-  const toShow = all.map((showable) => {
-    const result = { start, showable };
-    start += showable.endTime;
-    return result;
-  });
-  const endTime = start;
-  function show(timeInMs: number) {
-    toShow.forEach(({ start, showable }) => showable.show(timeInMs - start));
-  }
-  return { endTime, show };
-}
 /*
 class HandwritingEffect {
   constructor() {
@@ -182,17 +94,14 @@ const path = pathShape.makeElement();
 mainSVG.append(path);
 path.classList.add("simple-text");
 
-const delayBeforeDraw = 500;
-const timeToDraw = 3000;
-const period = 4000;
-const handwriting = createHandwriting(delayBeforeDraw, timeToDraw, pathShape);
+const delayBefore = 500;
+const duration = 2500;
+const delayAfter = 1000;
+const handwriting = createHandwriting(pathShape);
 mainSVG.append(handwriting.topElement);
 handwriting.topElement.classList.add("simple-text");
 handwriting.topElement.style.transform = `translateY(${laidOut.height}px)`;
-new MainAnimation({
-  show(timeInMs) {
-    timeInMs %= period;
-    handwriting.show(timeInMs);
-  },
-  endTime: Infinity,
-});
+new MainAnimation(
+  makeRepeater(handwriting.makeShowable({ duration, delayAfter, delayBefore })),
+  "peano-vs-fourier"
+);
