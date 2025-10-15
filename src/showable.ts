@@ -5,7 +5,8 @@ export type Showable = {
   readonly endTime: number;
 };
 
-export function makeShowableInParallel(...all: Showable[]): Showable {
+export function makeShowableInParallel(all: Showable[]): Showable {
+  all = [...all];
   const endTime = Math.max(...all.map((showable) => showable.endTime));
   function show(timeInMs: number) {
     all.forEach((showable) => showable.show(timeInMs));
@@ -13,7 +14,8 @@ export function makeShowableInParallel(...all: Showable[]): Showable {
   return { endTime, show };
 }
 
-export function makeShowableInSeries(...all: Showable[]): Showable {
+export function makeShowableInSeries(all: Showable[]): Showable {
+  all = [...all];
   let start = 0;
   const toShow = all.map((showable) => {
     const result = { start, showable };

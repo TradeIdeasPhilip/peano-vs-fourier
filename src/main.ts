@@ -5,7 +5,12 @@ import { ParagraphLayout } from "./glib/paragraph-layout";
 import { Font } from "./glib/letters-base";
 import { createHandwriting } from "./glib/handwriting";
 import { MainAnimation } from "./main-animation";
-import { makeRepeater } from "./showable";
+import {
+  makeShowableInParallel,
+  makeShowableInSeries,
+  Showable,
+} from "./showable";
+import { PathShape } from "./glib/path-shape";
 
 const numberOfFourierSamples = 1024;
 
@@ -85,23 +90,139 @@ class HandwritingEffect {
 
 const mainSVG = getById("main", SVGSVGElement);
 
-const font = Font.cursive(1);
-const layout = new ParagraphLayout(font);
-const wordInfo = layout.addText("Hello world!");
-const laidOut = layout.align(undefined, "center");
-const pathShape = laidOut.singlePathShape();
-const path = pathShape.makeElement();
-mainSVG.append(path);
-path.classList.add("simple-text");
+const chapters: Showable[] = [];
 
-const delayBefore = 500;
-const duration = 2500;
-const delayAfter = 1000;
-const handwriting = createHandwriting(pathShape);
-mainSVG.append(handwriting.topElement);
-handwriting.topElement.classList.add("simple-text");
-handwriting.topElement.style.transform = `translateY(${laidOut.height}px)`;
-new MainAnimation(
-  makeRepeater(handwriting.makeShowable({ duration, delayAfter, delayBefore })),
-  "peano-vs-fourier"
-);
+const font = Font.cursive(2 / 3);
+
+function makeChapterTitle(title: string, className: string, index: number) {
+  const delayBefore = 500;
+  const duration = 2500;
+  const delayAfter = 7000;
+  const layout = new ParagraphLayout(font);
+  const wordInfo = layout.addText(title);
+  const laidOut = layout.align();
+  const pathShape = laidOut.singlePathShape();
+  const handwriting = createHandwriting(pathShape);
+  mainSVG.append(handwriting.topElement);
+  handwriting.topElement.classList.add(className);
+  const lineHeight = font.bottom - font.top;
+  handwriting.topElement.style.transform = `translateY(${
+    lineHeight * (index + 1)
+  }px) translateX(${lineHeight * 0.5}px)`;
+  const showable = handwriting.makeShowable({
+    duration,
+    delayAfter,
+    delayBefore,
+  });
+  return showable;
+}
+
+function createPeanoPath(iteration: number, size = 1) {
+  function getSegmentLength() {
+    let length = 0;
+    for (let i = 0; i < iteration; i++) {
+      length = 2 + 3 * length;
+    }
+    return 1 / length;
+  }
+  const segmentLength = getSegmentLength();
+  function create(iteration: number, up: boolean, right: boolean) {
+    if (iteration == 0) {
+      return "";
+    }
+    const previous = iteration - 1;
+    const vSegment = ` v ${segmentLength * (up ? -1 : 1)}`;
+    const altVSegment = ` v ${segmentLength * (up ? 1 : -1)}`;
+    const hSegment = ` h ${segmentLength * (right ? 1 : -1)}`;
+    let result = "";
+    result += create(previous, up, right);
+    result += vSegment;
+    result += create(previous, up, !right);
+    result += vSegment;
+    result += create(previous, up, right);
+    result += hSegment;
+    result += create(previous, !up, right);
+    result += altVSegment;
+    result += create(previous, !up, !right);
+    result += altVSegment;
+    result += create(previous, !up, right);
+    result += hSegment;
+    result += create(previous, up, right);
+    result += vSegment;
+    result += create(previous, up, !right);
+    result += vSegment;
+    result += create(previous, up, right);
+    return result;
+  }
+  const fullString = "M 0 1" + create(iteration, true, true);
+  return PathShape.fromString(fullString);
+}
+(window as any).createPeanoPath = createPeanoPath;
+
+{
+  // Script:
+  // One large copy of the first iteration drawing.
+  // Draw it with the handwriting effect.
+  // Leave it in place when finished, where the second and third iterations will cover it.
+  // D'oh, I'm calling 0 the degenrate case in some places, and in other places 0 is the first interestin case.
+  const peano0D = "M 0,1 V 0 H 0.5 V 1 H 1 V 0";
+  const peano0Shape = createPeanoPath(1); //PathShape.fromString(peano0D);
+  const peanoHandwriting = createHandwriting(peano0Shape);
+  peanoHandwriting.topElement.id = "peano-1-main";
+  mainSVG.append(peanoHandwriting.topElement);
+  const peanoShowable = peanoHandwriting.makeShowable({ duration: 2000 });
+  const chapterTitle = makeChapterTitle(
+    "First iteration\nof Peano curve",
+    "iteration-1-text",
+    0
+  );
+  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
+  chapters.push(chapter);
+}
+{
+  // Script:
+  // Create a copy of the first iteration, but in white.
+  // Create it in place, on top of the original.
+  // Maybe use the handwriting effect to introduce it.
+  // Then shrink it down the appropriate amount.
+  // Keep the bottom left corner fixed in place and everything else moves toward that corner.
+  // Keep the stroke width constant despite resizing the path.
+  // Then make a copy of that small white version.
+  // Flip it up into the next position, slightly above the first, upside down.
+  // Then use a handwriting effect to add the missing bar connecting the first to the second.
+  // Then flip the second one up to make the third.
+  // The use handwriting effect to add the missing bar connecting the second to the third.
+  // Then flip right, then down, then down again, then right again, the up again, then up again.
+  const peanoShape = createPeanoPath(2); //PathShape.fromString(peano0D);
+  const peanoHandwriting = createHandwriting(peanoShape);
+  peanoHandwriting.topElement.id = "peano-2-main";
+  mainSVG.append(peanoHandwriting.topElement);
+  const peanoShowable = peanoHandwriting.makeShowable({ duration: 6000 });
+  const chapterTitle = makeChapterTitle(
+    "Second iteration",
+    "iteration-2-text",
+    3
+  );
+  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
+  chapters.push(chapter);
+}
+
+{
+  // Script:
+  // Analogous to the second iteration.
+  // Make nine copies of the second iteration and connect them in the same way.
+  const peanoShape = createPeanoPath(3); //PathShape.fromString(peano0D);
+  const peanoHandwriting = createHandwriting(peanoShape);
+  peanoHandwriting.topElement.id = "peano-3-main";
+  mainSVG.append(peanoHandwriting.topElement);
+  const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
+  const chapterTitle = makeChapterTitle(
+    "Third iteration",
+    "iteration-3-text",
+    5
+  );
+  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
+  chapters.push(chapter);
+}
+
+new MainAnimation(makeShowableInSeries(chapters), "peano-vs-fourier");

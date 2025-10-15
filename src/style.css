@@ -45,7 +45,6 @@ line#for-scale {
   stroke-width: var(--base-stroke-width);
 }
 
-
 path[data-reference] {
   fill: none;
   stroke-width: calc(0 * var(--base-stroke-width) / var(--path-scale) * 0.25);
@@ -68,26 +67,19 @@ path[data-live].outline {
 
 path[data-live].offset-blur {
   --angle: 30deg;
-  --offset: calc(
-    var(--base-stroke-width) / var(--path-scale) * 8
-  );
+  --offset: calc(var(--base-stroke-width) / var(--path-scale) * 8);
   transform: translate(
     calc(var(--offset) * cos(var(--angle))),
     calc(var(--offset) * sin(var(--angle)))
   );
-  stroke-width: calc(
-    var(--base-stroke-width) / var(--path-scale) * 5
-  );
+  stroke-width: calc(var(--base-stroke-width) / var(--path-scale) * 5);
   stroke: color(from var(--blur-color) srgb r g b / 0.33);
   /*  mask: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.3) 100%); */ /* Natural fade */
 }
 
-
 body {
   --unit: calc(min(100vw / 16, 100vh / 9));
 }
-
-
 
 #line-text path {
   fill: none;
@@ -97,12 +89,47 @@ body {
   stroke-width: 0.25;
 }
 
-.simple-text {
-  fill:none;
-  stroke: var(--blue);
-  stroke-width: 0.07;
+.iteration-1-text {
+  fill: none;
+  stroke: red;
+  stroke-width: 0.045;
 }
 
+.iteration-2-text {
+  fill: none;
+  stroke: white;
+  stroke-width: 0.045;
+}
+
+.iteration-3-text {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 0.045;
+}
+
+#peano-1-main {
+  fill: none;
+  stroke: red;
+  stroke-width: 0.045;
+  stroke-linecap: square;
+  transform: translate(8px, 1px) scale(7);
+}
+
+#peano-2-main {
+  fill: none;
+  stroke: white;
+  stroke-width: 0.03;
+  stroke-linecap: square;
+  transform: translate(8px, 1px) scale(7);
+}
+
+#peano-3-main {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 0.015;
+  stroke-linecap: square;
+  transform: translate(8px, 1px) scale(7);
+}
 
 g.handwriting > path {
   --offset: replace-me;
