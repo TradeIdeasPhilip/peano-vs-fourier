@@ -14,6 +14,19 @@ export function makeShowableInParallel(all: Showable[]): Showable {
   return { endTime, show };
 }
 
+/**
+ * Create a new showable that contains all of the inputs as children.
+ * The new composite showable's duration will be the sum of the durations of all children.
+ *
+ * Each call to the composite's show() function will call all of children's show() functions.
+ * However, the time will be offset for each one.
+ * The time will be less than 0 before the item should be shown.
+ * The time will be exactly 0 right when the item should first be shown.
+ * The time will be exactly the item's duration at the end of the time when the item should be shown.
+ * The item can decide what to do before or after it should be shown.
+ * @param all The child items to show.
+ * @returns A new showable.
+ */
 export function makeShowableInSeries(all: Showable[]): Showable {
   all = [...all];
   let start = 0;

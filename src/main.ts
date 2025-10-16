@@ -258,13 +258,79 @@ function createPeanoPath(iteration: number, size = 1) {
   const peanoHandwriting = createHandwriting(peanoShape);
   peanoHandwriting.topElement.id = "peano-2-main";
   mainSVG.append(peanoHandwriting.topElement);
+
+  /**
+   * Show the 5 exact copies of iteration 1 in iteration 2:
+   * stroke-dasharray: 1 1.25;
+   *  stroke-dashoffset: 0;
+   *
+   * Show the 4 reversed copies of iteration 1 in iteration 2:
+   * stroke-dasharray: 1 1.25;
+   * stroke-dashoffset: 1.125;
+   *
+   * Show all 9 copies of iteration 1 in iteration 2:
+   * stroke-dasharray: 1 0.125;
+   * stroke-dashoffset: 0;
+   *
+   * Show just the connective tissue.
+   * 8 segments similar to the original in iteration 1, but broken apart.
+   * Doesn't look very good.  🙁
+   * stroke-dasharray: 0.125 1;
+   * stroke-dashoffset: -1;
+   *
+   * Restore to normal:
+   * $0.style['stroke-dashoffset']="";
+   * $0.style['stroke-dasharray']="";
+   *
+   */
+
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 6000 });
+
+  function makeShowParts(): Showable {
+    const initialPauseDuration = 1000;
+    const exactCopiesDuration = 2000;
+    const reversedCopiesDuration = 2000;
+    const allCopiesDuration = 2000;
+    const finalPauseDuration = 2000;
+    const initialPauseEnd = initialPauseDuration;
+    const exactCopiesEnd = initialPauseEnd + exactCopiesDuration;
+    const reversedCopiesEnd = exactCopiesEnd + reversedCopiesDuration;
+    const allCopiesEnd = reversedCopiesEnd + allCopiesDuration;
+    const endTime = allCopiesEnd + finalPauseDuration;
+    const style = querySelector(
+      ":scope *",
+      SVGPathElement,
+      peanoHandwriting.topElement
+    ).style;
+    function show(timeInMS: number) {
+      if (timeInMS < initialPauseEnd || timeInMS >= allCopiesEnd) {
+        style.strokeDashoffset = "";
+        style.strokeDasharray = "";
+      } else if (timeInMS < exactCopiesEnd) {
+        style.strokeDashoffset = "0";
+        style.strokeDasharray = "1 1.25";
+      } else if (timeInMS < reversedCopiesEnd) {
+        style.strokeDashoffset = "1.125";
+        style.strokeDasharray = "1 1.25";
+      } else if (timeInMS < allCopiesEnd) {
+        style.strokeDashoffset = "0";
+        style.strokeDasharray = "1 0.125";
+      } else {
+        throw new Error("wtf");
+      }
+    }
+    return { show, endTime };
+  }
+
   const chapterTitle = makeChapterTitle(
     "Second iteration",
     "iteration-2-text",
     3
   );
-  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
+  const chapter = makeShowableInParallel([
+    makeShowableInSeries([peanoShowable, makeShowParts()]),
+    chapterTitle,
+  ]);
   chapters.push(chapter);
 }
 
