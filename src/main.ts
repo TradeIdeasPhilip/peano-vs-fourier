@@ -10,7 +10,7 @@ import {
   makeShowableInSeries,
   Showable,
 } from "./showable";
-import { PathShape } from "./glib/path-shape";
+import { LCommand, PathShape } from "./glib/path-shape";
 
 const numberOfFourierSamples = 1024;
 
@@ -97,7 +97,7 @@ const font = Font.cursive(2 / 3);
 function makeChapterTitle(title: string, className: string, index: number) {
   const delayBefore = 500;
   const duration = 2500;
-  const delayAfter = 7000;
+  const delayAfter = 1000;
   const layout = new ParagraphLayout(font);
   const wordInfo = layout.addText(title);
   const laidOut = layout.align();
@@ -155,7 +155,69 @@ function createPeanoPath(iteration: number, size = 1) {
     return result;
   }
   const fullString = "M 0 1" + create(iteration, true, true);
-  return PathShape.fromString(fullString);
+  /**
+   * The original sequence of commands.
+   * These were created in such a way that every one has the exact same length.
+   * If you see one segment on the screen that is 5✕ as long as the shortest segment, it is actually made out of 5 commands in this list.
+   */
+  const verboseCommands = PathShape.fromString(fullString).commands;
+  /**
+   * Build a new list of commands that is equivalent to {@link verboseCommands} but shorter.
+   * This is not strictly necessary, but it might help the Fourier process to have fewer segments.
+   * You will need at least one sample per segment.
+   * If you have unnecessary segments then you might have to take a lot more samples and the Fourier algorithm will take longer **for each frame**.
+   *
+   * That logic is not completely sound.
+   * I was thinking about the biggest hilbert curve in https://youtu.be/L92xpvGKi4A?si=Gg4P_WXTeHm0WeGL.
+   * I was using 1024 samples for all of my work, and that curve just barely fit.
+   * To do a good job we probably don't want to push the limits; it's not unreasonable for a longer segment to have multiple samples inside of it.
+   *
+   * Assuming we have enough
+   *
+   * I did this mostly for curiosity.
+   * The number of segments in the "verbose" column describes the length of the path.
+   * The number of segments in the "terse" column describes the number of segments that go all the way from corner to corner.
+   * | Iteration | verbose | terse |
+   * | -------: | ------: | -------: |
+   * | 0 | 0 | 0 |
+   * | 1 | 8 | 5 |
+   * | 2 | 80 | 41 |
+   * | 3 | 728 | 365 |
+   * | 4 | 6,560 | 3,281 |
+   * | 5 | 59,048 | 29,525 |
+   *
+   * Peano curve 3 fits into our standard 1,024 samples with plenty of room to spare.
+   * But we'd need to ask for *a lot* more samples to do the bare minimum for Peano curves 4 and 5.
+   */
+  const terseCommands = new Array<LCommand>();
+  verboseCommands.forEach((command) => {
+    // Any time we see two line commands in a row with identical angles, combine them.
+    if (!(command instanceof LCommand)) {
+      throw new Error("wtf");
+    }
+    const previous = terseCommands.at(-1);
+    if (
+      previous != undefined &&
+      previous.outgoingAngle == command.incomingAngle
+    ) {
+      const combined = new LCommand(
+        previous.x0,
+        previous.y0,
+        command.x,
+        command.y
+      );
+      terseCommands.pop();
+      terseCommands.push(combined);
+    } else {
+      // Add the command as is.
+      terseCommands.push(command);
+    }
+  });
+  const result = new PathShape(terseCommands);
+  if (result.splitOnMove().length > 1) {
+    throw new Error("wtf");
+  }
+  return result;
 }
 (window as any).createPeanoPath = createPeanoPath;
 
@@ -164,7 +226,6 @@ function createPeanoPath(iteration: number, size = 1) {
   // One large copy of the first iteration drawing.
   // Draw it with the handwriting effect.
   // Leave it in place when finished, where the second and third iterations will cover it.
-  // D'oh, I'm calling 0 the degenrate case in some places, and in other places 0 is the first interestin case.
   const peano0D = "M 0,1 V 0 H 0.5 V 1 H 1 V 0";
   const peano0Shape = createPeanoPath(1); //PathShape.fromString(peano0D);
   const peanoHandwriting = createHandwriting(peano0Shape);
