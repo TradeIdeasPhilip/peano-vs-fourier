@@ -260,31 +260,6 @@ function createPeanoPath(iteration: number, size = 1) {
   peanoHandwriting.topElement.id = "peano-2-main";
   mainSVG.append(peanoHandwriting.topElement);
 
-  /**
-   * Show the 5 exact copies of iteration 1 in iteration 2:
-   * stroke-dasharray: 1 1.25;
-   *  stroke-dashoffset: 0;
-   *
-   * Show the 4 reversed copies of iteration 1 in iteration 2:
-   * stroke-dasharray: 1 1.25;
-   * stroke-dashoffset: 1.125;
-   *
-   * Show all 9 copies of iteration 1 in iteration 2:
-   * stroke-dasharray: 1 0.125;
-   * stroke-dashoffset: 0;
-   *
-   * Show just the connective tissue.
-   * 8 segments similar to the original in iteration 1, but broken apart.
-   * Doesn't look very good.  🙁
-   * stroke-dasharray: 0.125 1;
-   * stroke-dashoffset: -1;
-   *
-   * Restore to normal:
-   * $0.style['stroke-dashoffset']="";
-   * $0.style['stroke-dasharray']="";
-   *
-   */
-
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 6000 });
 
   function makeShowParts(): Showable {
@@ -341,12 +316,67 @@ function createPeanoPath(iteration: number, size = 1) {
   peanoHandwriting.topElement.id = "peano-3-main";
   mainSVG.append(peanoHandwriting.topElement);
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
+
+  function makeShowParts(): Showable {
+    const style = querySelector(
+      ":scope *",
+      SVGPathElement,
+      peanoHandwriting.topElement
+    ).style;
+    function hide() {
+      style.strokeDashoffset = "";
+      style.strokeDasharray = "";
+    }
+    function showExactSmall() {
+      style.strokeDashoffset = "0";
+      style.strokeDasharray = `${8 / 26} ${(2 + 8) / 26}`;
+    }
+    function showReversedSmall() {
+      style.strokeDashoffset = `${(8 + 1) / 26}`;
+      style.strokeDasharray = `${8 / 26} ${(2 + 8) / 26}`;
+    }
+    function showAllSmall() {
+      style.strokeDashoffset = "0";
+      style.strokeDasharray = `${8 / 26} ${1 / 26}`;
+    }
+    function showAll() {
+      style.strokeDashoffset = "0";
+      style.strokeDasharray = `${80 / 26} ${1 / 26}`;
+    }
+    function showExactCopies() {
+      style.strokeDashoffset = "0";
+      style.strokeDasharray = `${80 / 26} ${(2 + 80) / 26}`;
+    }
+    function showReversedCopies() {
+      style.strokeDashoffset = `${(1 + 80) / 26}`;
+      style.strokeDasharray = `${80 / 26} ${(2 + 80) / 26}`;
+    }
+    const result = makeExclusiveInSeries([
+      { show: hide, endTime: 1000 },
+      { show: showAllSmall, endTime: 1000 },
+      { show: showExactSmall, endTime: 2000 },
+      { show: showAllSmall, endTime: 1000 },
+      { show: showReversedSmall, endTime: 2000 },
+      { show: showAllSmall, endTime: 1000 },
+      { show: showAll, endTime: 1000 },
+      { show: showExactCopies, endTime: 2000 },
+      { show: showAll, endTime: 1000 },
+      { show: showReversedCopies, endTime: 2000 },
+      { show: showAll, endTime: 1000 },
+      { show: hide, endTime: 1000 },
+    ]);
+    return result;
+  }
+
   const chapterTitle = makeChapterTitle(
     "Third iteration",
     "iteration-3-text",
     5
   );
-  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
+  const chapter = makeShowableInParallel([
+    makeShowableInSeries([peanoShowable, makeShowParts()]),
+    chapterTitle,
+  ]);
   chapters.push(chapter);
 }
 
