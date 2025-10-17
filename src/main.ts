@@ -6,6 +6,7 @@ import { Font } from "./glib/letters-base";
 import { createHandwriting } from "./glib/handwriting";
 import { MainAnimation } from "./main-animation";
 import {
+  makeExclusiveInSeries,
   makeShowableInParallel,
   makeShowableInSeries,
   Showable,
@@ -287,39 +288,36 @@ function createPeanoPath(iteration: number, size = 1) {
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 6000 });
 
   function makeShowParts(): Showable {
-    const initialPauseDuration = 1000;
-    const exactCopiesDuration = 2000;
-    const reversedCopiesDuration = 2000;
-    const allCopiesDuration = 2000;
-    const finalPauseDuration = 2000;
-    const initialPauseEnd = initialPauseDuration;
-    const exactCopiesEnd = initialPauseEnd + exactCopiesDuration;
-    const reversedCopiesEnd = exactCopiesEnd + reversedCopiesDuration;
-    const allCopiesEnd = reversedCopiesEnd + allCopiesDuration;
-    const endTime = allCopiesEnd + finalPauseDuration;
     const style = querySelector(
       ":scope *",
       SVGPathElement,
       peanoHandwriting.topElement
     ).style;
-    function show(timeInMS: number) {
-      if (timeInMS < initialPauseEnd || timeInMS >= allCopiesEnd) {
-        style.strokeDashoffset = "";
-        style.strokeDasharray = "";
-      } else if (timeInMS < exactCopiesEnd) {
-        style.strokeDashoffset = "0";
-        style.strokeDasharray = "1 1.25";
-      } else if (timeInMS < reversedCopiesEnd) {
-        style.strokeDashoffset = "1.125";
-        style.strokeDasharray = "1 1.25";
-      } else if (timeInMS < allCopiesEnd) {
-        style.strokeDashoffset = "0";
-        style.strokeDasharray = "1 0.125";
-      } else {
-        throw new Error("wtf");
-      }
+    function hide() {
+      style.strokeDashoffset = "";
+      style.strokeDasharray = "";
     }
-    return { show, endTime };
+    function showAll() {
+      style.strokeDashoffset = "0";
+      style.strokeDasharray = "1 0.125";
+    }
+    function showExactCopies() {
+      style.strokeDashoffset = "0";
+      style.strokeDasharray = "1 1.25";
+    }
+    function showReversedCopies() {
+      style.strokeDashoffset = "1.125";
+      style.strokeDasharray = "1 1.25";
+    }
+    const result = makeExclusiveInSeries([
+      { show: hide, endTime: 1000 },
+      { show: showAll, endTime: 2000 },
+      { show: showExactCopies, endTime: 2000 },
+      { show: showReversedCopies, endTime: 2000 },
+      { show: showAll, endTime: 2000 },
+      { show: hide, endTime: 1000 },
+    ]);
+    return result;
   }
 
   const chapterTitle = makeChapterTitle(
