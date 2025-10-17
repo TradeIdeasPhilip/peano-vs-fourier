@@ -123,6 +123,22 @@ body {
   transform: translate(8px, 1px) scale(7);
 }
 
+#peano-2-dark {
+  fill: none;
+  stroke: color-mix(in srgb, black, white);
+  stroke-width: 0.03;
+  stroke-linecap: square;
+  transform: translate(8px, 1px) scale(7);
+}
+
+#peano-2-pieces {
+  fill: none;
+  stroke: white;
+  stroke-width: 0.03;
+  stroke-linecap: square;
+  transform: translate(8px, 1px) scale(7);
+}
+
 #peano-3-main {
   fill: none;
   stroke: var(--blue);

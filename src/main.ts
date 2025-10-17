@@ -263,26 +263,33 @@ function createPeanoPath(iteration: number, size = 1) {
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 6000 });
 
   function makeShowParts(): Showable {
-    const style = querySelector(
-      ":scope *",
-      SVGPathElement,
-      peanoHandwriting.topElement
-    ).style;
+    const darker = peanoShape.makeElement();
+    darker.id = "peano-2-dark";
+    const pieces = peanoShape.makeElement();
+    pieces.id = "peano-2-pieces";
+    mainSVG.append(darker, pieces);
     function hide() {
-      style.strokeDashoffset = "";
-      style.strokeDasharray = "";
+      darker.style.display = "none";
+      pieces.style.display = "none";
+    }
+    function show() {
+      darker.style.display = "";
+      pieces.style.display = "";
     }
     function showAll() {
-      style.strokeDashoffset = "0";
-      style.strokeDasharray = "1 0.125";
+      show();
+      pieces.style.strokeDashoffset = "0";
+      pieces.style.strokeDasharray = "1 0.125";
     }
     function showExactCopies() {
-      style.strokeDashoffset = "0";
-      style.strokeDasharray = "1 1.25";
+      show();
+      pieces.style.strokeDashoffset = "0";
+      pieces.style.strokeDasharray = "1 1.25";
     }
     function showReversedCopies() {
-      style.strokeDashoffset = "1.125";
-      style.strokeDasharray = "1 1.25";
+      show();
+      pieces.style.strokeDashoffset = "1.125";
+      pieces.style.strokeDasharray = "1 1.25";
     }
     const result = makeExclusiveInSeries([
       { show: hide, endTime: 1000 },
