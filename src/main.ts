@@ -315,48 +315,60 @@ function createPeanoPath(iteration: number, size = 1) {
 }
 
 {
-  // Script:
-  // Analogous to the second iteration.
-  // Make nine copies of the second iteration and connect them in the same way.
-  const peanoShape = createPeanoPath(3); //PathShape.fromString(peano0D);
+  const peanoShape = createPeanoPath(3);
   const peanoHandwriting = createHandwriting(peanoShape);
   peanoHandwriting.topElement.id = "peano-3-main";
   mainSVG.append(peanoHandwriting.topElement);
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
 
   function makeShowParts(): Showable {
-    const style = querySelector(
-      ":scope *",
-      SVGPathElement,
-      peanoHandwriting.topElement
-    ).style;
+    const darker = peanoShape.makeElement();
+    darker.id = "peano-3-dark";
+    const pieces = peanoShape.makeElement();
+    pieces.id = "peano-3-pieces";
+    mainSVG.append(darker, pieces);
     function hide() {
-      style.strokeDashoffset = "";
-      style.strokeDasharray = "";
+      darker.style.display = "none";
+      pieces.style.display = "none";
+    }
+    function show() {
+      darker.style.display = "";
+      pieces.style.display = "";
     }
     function showExactSmall() {
-      style.strokeDashoffset = "0";
-      style.strokeDasharray = `${8 / 26} ${(2 + 8) / 26}`;
+      show();
+      pieces.style.strokeDashoffset = "0";
+      pieces.style.strokeDasharray = `${8 / 26} ${(2 + 8) / 26}`;
     }
     function showReversedSmall() {
-      style.strokeDashoffset = `${(8 + 1) / 26}`;
-      style.strokeDasharray = `${8 / 26} ${(2 + 8) / 26}`;
+      show();
+      pieces.style.strokeDashoffset = `${(8 + 1) / 26}`;
+      pieces.style.strokeDasharray = `${8 / 26} ${(2 + 8) / 26}`;
     }
     function showAllSmall() {
-      style.strokeDashoffset = "0";
-      style.strokeDasharray = `${8 / 26} ${1 / 26}`;
+      show();
+      pieces.style.strokeDashoffset = "0";
+      pieces.style.strokeDasharray = `${8 / 26} ${1 / 26}`;
     }
     function showAll() {
-      style.strokeDashoffset = "0";
-      style.strokeDasharray = `${80 / 26} ${1 / 26}`;
+      show();
+      pieces.style.strokeDashoffset = "0";
+      pieces.style.strokeDasharray = `${80 / 26} ${1 / 26}`;
+    }
+    function showConnectors() {
+      show();
+      pieces.style.strokeDashoffset = `${1 / 26}`;
+      pieces.style.strokeDasharray = `${1 / 26} ${80 / 26}`;
     }
     function showExactCopies() {
-      style.strokeDashoffset = "0";
-      style.strokeDasharray = `${80 / 26} ${(2 + 80) / 26}`;
+      show();
+      pieces.style.strokeDashoffset = "0";
+      pieces.style.strokeDasharray = `${80 / 26} ${(2 + 80) / 26}`;
     }
     function showReversedCopies() {
-      style.strokeDashoffset = `${(1 + 80) / 26}`;
-      style.strokeDasharray = `${80 / 26} ${(2 + 80) / 26}`;
+      show();
+      pieces.style.strokeDashoffset = `${(1 + 80) / 26}`;
+      pieces.style.strokeDasharray = `${80 / 26} ${(2 + 80) / 26}`;
     }
     const result = makeExclusiveInSeries([
       { show: hide, endTime: 1000 },
@@ -370,6 +382,11 @@ function createPeanoPath(iteration: number, size = 1) {
       { show: showAll, endTime: 1000 },
       { show: showReversedCopies, endTime: 2000 },
       { show: showAll, endTime: 1000 },
+      { show: showConnectors, endTime: 1000 },
+      { show: showAll, endTime: 1000 },
+      { show: showConnectors, endTime: 1000 },
+      { show: showAll, endTime: 1000 },
+      { show: showConnectors, endTime: 1000 },
       { show: hide, endTime: 1000 },
     ]);
     return result;

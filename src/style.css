@@ -147,6 +147,22 @@ body {
   transform: translate(8px, 1px) scale(7);
 }
 
+#peano-3-dark {
+  fill: none;
+  stroke: color-mix(in srgb, black, var(--blue));
+  stroke-width: 0.015;
+  stroke-linecap: square;
+  transform: translate(8px, 1px) scale(7);
+}
+
+#peano-3-pieces {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 0.015;
+  stroke-linecap: square;
+  transform: translate(8px, 1px) scale(7);
+}
+
 g.handwriting > path {
   --offset: replace-me;
   --length: replace-me;
