@@ -281,6 +281,11 @@ function createPeanoPath(iteration: number, size = 1) {
       pieces.style.strokeDashoffset = "0";
       pieces.style.strokeDasharray = "1 0.125";
     }
+    function showConnectors() {
+      show();
+      pieces.style.strokeDashoffset = `0.125`;
+      pieces.style.strokeDasharray = `0.125 1`;
+    }
     function showExactCopies() {
       show();
       pieces.style.strokeDashoffset = "0";
@@ -296,6 +301,8 @@ function createPeanoPath(iteration: number, size = 1) {
       { show: showAll, endTime: 2000 },
       { show: showExactCopies, endTime: 2000 },
       { show: showReversedCopies, endTime: 2000 },
+      { show: showAll, endTime: 2000 },
+      { show: showConnectors, endTime: 5000 },
       { show: showAll, endTime: 2000 },
       { show: hide, endTime: 1000 },
     ]);
