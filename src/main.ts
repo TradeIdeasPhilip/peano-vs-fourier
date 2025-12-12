@@ -1,6 +1,12 @@
 import { getById, querySelector, querySelectorAll } from "phil-lib/client-misc";
 import "./style.css";
-import { type ReadOnlyRect } from "phil-lib/misc";
+import {
+  assertClass,
+  assertFinite,
+  initializedArray,
+  makeLinear,
+  type ReadOnlyRect,
+} from "phil-lib/misc";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { Font } from "./glib/letters-base";
 import { createHandwriting } from "./glib/handwriting";
@@ -11,7 +17,7 @@ import {
   makeShowableInSeries,
   Showable,
 } from "./showable";
-import { LCommand, PathShape } from "./glib/path-shape";
+import { Command, LCommand, PathShape } from "./glib/path-shape";
 
 const numberOfFourierSamples = 1024;
 
@@ -118,15 +124,16 @@ function makeChapterTitle(title: string, className: string, index: number) {
   return showable;
 }
 
-function createPeanoPath(iteration: number, size = 1) {
-  function getSegmentLength() {
-    let length = 0;
-    for (let i = 0; i < iteration; i++) {
-      length = 2 + 3 * length;
-    }
-    return 1 / length;
+function getSegmentLength(iteration: number) {
+  let length = 0;
+  for (let i = 0; i < iteration; i++) {
+    length = 2 + 3 * length;
   }
-  const segmentLength = getSegmentLength();
+  return 1 / length;
+}
+
+function createPeanoPath(iteration: number, size = 1) {
+  const segmentLength = getSegmentLength(iteration);
   function create(iteration: number, up: boolean, right: boolean) {
     if (iteration == 0) {
       return "";
@@ -412,3 +419,162 @@ function createPeanoPath(iteration: number, size = 1) {
 }
 
 new MainAnimation(makeShowableInSeries(chapters), "peano-vs-fourier");
+
+/*
+for (let iteration =1; iteration <= 3; iteration++) {
+  const path = createPeanoPath(iteration);
+  const verticals = new Map<number, Command[]>();
+  const horizontals = new Map<number, Command[]>();
+  const numberOfBreaks = Math.round(1 / path.commands[1].x);
+  function get(x: number, container: Map<number, Command[]>) {
+    x = Math.round(x *numberOfBreaks)/numberOfBreaks;
+    let result = container.get(x);
+    if (result === undefined) {
+      result = [];
+      container.set(x, result);
+    }
+    return result;
+  }
+  path.commands.forEach((command, index) => {
+    const left = Math.min(command.x0, command.x);
+    const right = Math.max(command.x0, command.x);
+    if (left == right) {
+      get(left, verticals).push(command);
+    } else {
+      get(left, horizontals).push(command);
+    }
+  });
+  console.table([...verticals]);
+  console.table([...horizontals]);
+}
+*/
+
+function createExpander(fromIteration: number, toIteration: number) {
+  assertFinite(fromIteration, toIteration);
+  if (
+    !Number.isSafeInteger(fromIteration) ||
+    !Number.isSafeInteger(toIteration) ||
+    fromIteration < 1 ||
+    toIteration <= fromIteration
+  ) {
+    throw new Error("wtf");
+  }
+  /**
+   * This is the number of _spaces between_ the vertical lines in the "from" curve.
+   *
+   * The vertical lines will have indices between 0 and this, inclusive.
+   * Divide an index by this to get an x position, a value between 0 and 1 inclusive.
+   */
+  const fromCountVertical = Math.round(1 / getSegmentLength(fromIteration));
+  /**
+   * This is the number of _spaces between_ the vertical lines in the "to" curve.
+   *
+   * The vertical lines will have indices between 0 and this, inclusive.
+   * Divide an index by this to get an x position, a value between 0 and 1 inclusive.
+   */
+  const toCountVertical = Math.round(1 / getSegmentLength(toIteration));
+  /**
+   * How many different vertical line positions in the "to" curve are matched to each vertical line position in the "from curve".
+   *
+   * Probably a power of 3.
+   */
+  const inEachVerticalGroup = (toCountVertical + 1) / (fromCountVertical + 1);
+  if (!Number.isSafeInteger(inEachVerticalGroup)) {
+    throw new Error("wtf");
+  }
+  /**
+   * The input says which vertical line we are discussing in the "to" curve.
+   * This is a value between 0 and fromCountVertical, inclusive.
+   *
+   * The output is a number between 0 and 1, inclusive.
+   * This is the position to draw the line in the "from" curve.
+   */
+  const fromX = initializedArray(toCountVertical + 1, (toIndex) => {
+    const fromIndex = Math.floor(toIndex / inEachVerticalGroup);
+    const x = fromIndex / fromCountVertical;
+    return x;
+  });
+  /**
+   * How many copies of the simplest (iteration= 1) version of the curve are included in the "from" curve.
+   * Across _or_ down, __not__ area!
+   *
+   * Note that there is a small connector _between_ each of the simple versions.
+   */
+  const numberOfCopies = (fromCountVertical + 1) / 3;
+  const fromY: number[] = [];
+  for (let i = 0; i < numberOfCopies; i++) {
+    const fromSectionBottom = i * 3;
+    const fromSectionTop = fromSectionBottom + 2;
+    const toSectionPeriod = (toCountVertical + 1) / numberOfCopies;
+    const toSectionBottom = i * toSectionPeriod;
+    const toSectionSize = toSectionPeriod - 1;
+    const toSectionTop = toSectionBottom + toSectionSize;
+    const getY = makeLinear(
+      toSectionBottom,
+      fromSectionBottom / fromCountVertical,
+      toSectionTop,
+      fromSectionTop / fromCountVertical
+    );
+    for (let j = 0; j <= toSectionSize; j++) {
+      fromY.push(getY(toSectionBottom + j));
+    }
+  }
+  //return { fromX, fromY };
+  const toPath = createPeanoPath(toIteration);
+  const fromPath = new PathShape(
+    toPath.commands.map((command) => {
+      function translateX(x: number) {
+        const index = Math.round(x * toCountVertical);
+        return fromX[index];
+      }
+      function translateY(y: number) {
+        const index = Math.round(y * toCountVertical);
+        return fromY[index];
+      }
+      return new LCommand(
+        translateX(command.x0),
+        translateY(command.y0),
+        translateX(command.x),
+        translateY(command.y)
+      );
+    })
+  );
+  const pathElement = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "path"
+  );
+  pathElement.animate([{ d: fromPath.cssPath }, { d: toPath.cssPath }], {
+    duration: 5000,
+    iterations: Infinity,
+    easing: "ease-out",
+  });
+  pathElement.style.strokeWidth = "0.025";
+  pathElement.style.stroke = "yellow";
+  pathElement.style.transform = "translate(0.5px, 1.5px) scale(7)";
+  pathElement.style.strokeLinecap = "square";
+  pathElement.style.fill = "none";
+  return pathElement;
+  // 0       1 (old one )
+  // 0   1   2 (new one)
+
+  // 0       1       2 | 3           4           5 | 6            7           8
+  // 0 1 2 3 4 5 6 7 8 | 9 10 11 12 13 14 15 16 17 | 18 19 20 21 22 23 24 25 26
+
+  // 0                                                                        1
+  // 0 1 2 3 4 5 6 7 8   9 10 11 12 13 14 15 16 17   18 19 20 21 22 23 24 25 26
+
+  // ÷ 8
+  // 0 -> 0 \
+  // 8 -> 2 /
+  // 9 -> 3  \
+  // 17 -> 5 /
+  // 18 -> 6 \
+  // 26 -> 8 /
+
+  // ÷ 2
+  // 0 -> 0 \
+  // 8 -> 2 /
+}
+(window as any).createExpander = createExpander;
+
+//console.table(initializedArray(5, (i) => Math.round(1/getSegmentLength(i))+1));

@@ -112,7 +112,7 @@ body {
   stroke: red;
   stroke-width: 0.045;
   stroke-linecap: square;
-  transform: translate(8px, 1px) scale(7);
+  transform: translate(8.5px, 1.5px) scale(7);
 }
 
 #peano-2-main {
@@ -120,7 +120,7 @@ body {
   stroke: white;
   stroke-width: 0.03;
   stroke-linecap: square;
-  transform: translate(8px, 1px) scale(7);
+  transform: translate(8.5px, 1.5px) scale(7);
 }
 
 #peano-2-dark {
@@ -128,7 +128,7 @@ body {
   stroke: color-mix(in srgb, black, white);
   stroke-width: 0.03;
   stroke-linecap: square;
-  transform: translate(8px, 1px) scale(7);
+  transform: translate(8.5px, 1.5px) scale(7);
 }
 
 #peano-2-pieces {
@@ -136,7 +136,7 @@ body {
   stroke: white;
   stroke-width: 0.03;
   stroke-linecap: square;
-  transform: translate(8px, 1px) scale(7);
+  transform: translate(8.5px, 1.5px) scale(7);
 }
 
 #peano-3-main {
@@ -144,7 +144,7 @@ body {
   stroke: var(--blue);
   stroke-width: 0.015;
   stroke-linecap: square;
-  transform: translate(8px, 1px) scale(7);
+  transform: translate(8.5px, 1.5px) scale(7);
 }
 
 #peano-3-dark {
@@ -152,7 +152,7 @@ body {
   stroke: color-mix(in srgb, black, var(--blue));
   stroke-width: 0.015;
   stroke-linecap: square;
-  transform: translate(8px, 1px) scale(7);
+  transform: translate(8.5px, 1.5px) scale(7);
 }
 
 #peano-3-pieces {
@@ -160,7 +160,7 @@ body {
   stroke: var(--blue);
   stroke-width: 0.015;
   stroke-linecap: square;
-  transform: translate(8px, 1px) scale(7);
+  transform: translate(8.5px, 1.5px) scale(7);
 }
 
 g.handwriting > path {
