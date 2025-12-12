@@ -449,13 +449,16 @@ for (let iteration =1; iteration <= 3; iteration++) {
 }
 */
 
-function createExpander(fromIteration: number, toIteration: number) {
-  assertFinite(fromIteration, toIteration);
+function createExpander(
+  from: { iteration: number; color: string; strokeWidth: string },
+  to: { iteration: number; color: string; strokeWidth: string }
+) {
+  assertFinite(from.iteration, to.iteration);
   if (
-    !Number.isSafeInteger(fromIteration) ||
-    !Number.isSafeInteger(toIteration) ||
-    fromIteration < 1 ||
-    toIteration <= fromIteration
+    !Number.isSafeInteger(from.iteration) ||
+    !Number.isSafeInteger(to.iteration) ||
+    from.iteration < 1 ||
+    to.iteration <= from.iteration
   ) {
     throw new Error("wtf");
   }
@@ -465,14 +468,14 @@ function createExpander(fromIteration: number, toIteration: number) {
    * The vertical lines will have indices between 0 and this, inclusive.
    * Divide an index by this to get an x position, a value between 0 and 1 inclusive.
    */
-  const fromCountVertical = Math.round(1 / getSegmentLength(fromIteration));
+  const fromCountVertical = Math.round(1 / getSegmentLength(from.iteration));
   /**
    * This is the number of _spaces between_ the vertical lines in the "to" curve.
    *
    * The vertical lines will have indices between 0 and this, inclusive.
    * Divide an index by this to get an x position, a value between 0 and 1 inclusive.
    */
-  const toCountVertical = Math.round(1 / getSegmentLength(toIteration));
+  const toCountVertical = Math.round(1 / getSegmentLength(to.iteration));
   /**
    * How many different vertical line positions in the "to" curve are matched to each vertical line position in the "from curve".
    *
@@ -520,7 +523,7 @@ function createExpander(fromIteration: number, toIteration: number) {
     }
   }
   //return { fromX, fromY };
-  const toPath = createPeanoPath(toIteration);
+  const toPath = createPeanoPath(to.iteration);
   const fromPath = new PathShape(
     toPath.commands.map((command) => {
       function translateX(x: number) {
@@ -543,26 +546,34 @@ function createExpander(fromIteration: number, toIteration: number) {
     "http://www.w3.org/2000/svg",
     "path"
   );
-  pathElement.animate([{ d: fromPath.cssPath }, { d: toPath.cssPath }], {
-    duration: 5000,
-    iterations: Infinity,
-    easing: "ease-out",
-  });
-  pathElement.style.strokeWidth = "0.025";
-  pathElement.style.stroke = "yellow";
+  pathElement.animate(
+    [
+      {
+        strokeWidth: from.strokeWidth,
+        stroke: from.color,
+        d: fromPath.cssPath,
+      },
+      { strokeWidth: to.strokeWidth, stroke: to.color, d: toPath.cssPath },
+    ],
+    {
+      duration: 5000,
+      iterations: Infinity,
+      easing: "ease-out",
+    }
+  );
+  console.log([
+    {
+      strokeWidth: from.strokeWidth,
+      stroke: from.color,
+      d: fromPath.cssPath,
+    },
+    { stokeWidth: to.strokeWidth, stroke: to.color, d: toPath.cssPath },
+  ]);
   pathElement.style.transform = "translate(0.5px, 1.5px) scale(7)";
   pathElement.style.strokeLinecap = "square";
   pathElement.style.fill = "none";
+  pathElement.style.strokeWidth = "0.05";
   return pathElement;
-  // 0       1 (old one )
-  // 0   1   2 (new one)
-
-  // 0       1       2 | 3           4           5 | 6            7           8
-  // 0 1 2 3 4 5 6 7 8 | 9 10 11 12 13 14 15 16 17 | 18 19 20 21 22 23 24 25 26
-
-  // 0                                                                        1
-  // 0 1 2 3 4 5 6 7 8   9 10 11 12 13 14 15 16 17   18 19 20 21 22 23 24 25 26
-
   // ÷ 8
   // 0 -> 0 \
   // 8 -> 2 /
@@ -575,6 +586,20 @@ function createExpander(fromIteration: number, toIteration: number) {
   // 0 -> 0 \
   // 8 -> 2 /
 }
-(window as any).createExpander = createExpander;
+const state1 = { iteration: 1, color: "red", strokeWidth: "0.045" };
+const state2 = {
+  iteration: 2,
+  color: "white",
+  strokeWidth: "0.03",
+};
+const state3 = {
+  iteration: 3,
+  color: "var(--blue)",
+  strokeWidth: "0.015",
+};
+const morph12 = createExpander(state1, state2);
+const morph13 = createExpander(state1, state3);
+const morph23 = createExpander(state2, state3);
+console.log([morph12, morph13, morph23]);
 
 //console.table(initializedArray(5, (i) => Math.round(1/getSegmentLength(i))+1));
