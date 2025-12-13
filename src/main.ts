@@ -11,7 +11,6 @@ import { Font } from "./glib/letters-base";
 import { createHandwriting } from "./glib/handwriting";
 import { MainAnimation } from "./main-animation";
 import {
-  makeExclusiveInSeries,
   makeShowableInParallel,
   makeShowableInSeries,
   Showable,
@@ -86,7 +85,7 @@ const font = Font.cursive(0.55);
 
 function makeChapterTitle(title: string, className: string) {
   const delayBefore = 500;
-  const duration = (2500 / 30) * title.length;
+  const duration = (2500 / 30) * ((title.length * 2 + 30) / 3);
   const delayAfter = 1000;
   const layout = new ParagraphLayout(font);
   const wordInfo = layout.addText(title);
@@ -217,7 +216,9 @@ function createPeanoPath(iteration: number, size = 1) {
 
 /**
  * Create an animation morphing between one iteration of the Peano curve and another.
- * @param duration In milliseconds.
+ * @param duration The total time in milliseconds.  This includes delay on both sides.
+ * @param delay The time in milliseconds to display the initial state before starting to morph.
+ * @param endDelay The time in milliseconds to hold the final state, after the morph, before hiding.
  * @param from Initial state.  `iteration == 1` is the smallest legal value.
  * @param to Final state.  `to.iteration` must be larger than `from.iteration`.
  * @param midColors Additional colors to use between from.color and to.color.
@@ -230,10 +231,12 @@ function createPeanoPath(iteration: number, size = 1) {
  */
 function createExpander(
   duration: number,
+  delay: number,
+  endDelay: number,
   from: { iteration: number; color: string; strokeWidth: string },
   to: { iteration: number; color: string; strokeWidth: string },
   midColors: string[] = []
-) {
+): Showable {
   assertFinite(from.iteration, to.iteration);
   if (
     !Number.isSafeInteger(from.iteration) ||
@@ -340,8 +343,8 @@ function createExpander(
       d: [fromPath.cssPath, toPath.cssPath],
     },
     {
-      duration,
       fill: "both",
+      duration: duration - delay - endDelay,
       easing: "ease-out",
     }
   );
@@ -350,7 +353,18 @@ function createExpander(
   pathElement.style.strokeLinecap = "square";
   pathElement.style.fill = "none";
   pathElement.style.strokeWidth = "0.05";
-  return { pathElement, animation };
+  mainSVG.append(pathElement);
+  return {
+    endTime: duration,
+    show(timeInMs) {
+      if (timeInMs < 0 || timeInMs > duration) {
+        pathElement.style.display = "none";
+      } else {
+        pathElement.style.display = "";
+        animation.currentTime = timeInMs - delay;
+      }
+    },
+  };
 }
 const state1 = { iteration: 1, color: "red", strokeWidth: "0.045" };
 const state2 = {
@@ -396,25 +410,19 @@ const state3 = {
   const initialPause = 500;
   const finalPause = 1000;
   const expander = createExpander(
-    duration - initialPause - finalPause,
+    duration,
+    initialPause,
+    finalPause,
     state1,
     state2
   );
-  mainSVG.append(expander.pathElement);
-  const morph: Showable = {
-    endTime: duration,
-    show(timeInMs) {
-      if (timeInMs < 0 || timeInMs > duration) {
-        expander.pathElement.style.display = "none";
-      } else {
-        expander.pathElement.style.display = "";
-        expander.animation.currentTime = timeInMs - initialPause;
-      }
-    },
-  };
 
   const chapterTitle = makeChapterTitle("Second", "iteration-2-text");
-  const chapter = makeShowableInParallel([peanoShowable, morph, chapterTitle]);
+  const chapter = makeShowableInParallel([
+    peanoShowable,
+    expander,
+    chapterTitle,
+  ]);
   chapters.push(chapter);
 }
 
@@ -425,8 +433,15 @@ const state3 = {
   mainSVG.append(peanoHandwriting.topElement);
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
 
+  const expander1 = createExpander(9000, 500, 1500, state2, state3);
+  const expander2 = createExpander(9000, 1000, 1500, state1, state3);
+
   const chapterTitle = makeChapterTitle("Third", "iteration-3-text");
-  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
+  const chapter = makeShowableInParallel([
+    peanoShowable,
+    makeShowableInSeries([expander1, expander2]),
+    chapterTitle,
+  ]);
   chapters.push(chapter);
 }
 
