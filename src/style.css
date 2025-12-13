@@ -93,18 +93,27 @@ body {
   fill: none;
   stroke: red;
   stroke-width: 0.045;
+  transform: translateY(0.125px) translateX(0.125px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .iteration-2-text {
   fill: none;
   stroke: white;
   stroke-width: 0.045;
+  transform: translateY(0.125px) translateX(11px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .iteration-3-text {
   fill: none;
   stroke: var(--blue);
   stroke-width: 0.045;
+  transform: translateY(0.125px) translateX(13.8px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 #peano-1-main {

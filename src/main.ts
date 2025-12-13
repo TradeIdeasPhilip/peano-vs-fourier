@@ -1,7 +1,6 @@
 import { getById, querySelector, querySelectorAll } from "phil-lib/client-misc";
 import "./style.css";
 import {
-  assertClass,
   assertFinite,
   initializedArray,
   makeLinear,
@@ -17,7 +16,7 @@ import {
   makeShowableInSeries,
   Showable,
 } from "./showable";
-import { Command, LCommand, PathShape } from "./glib/path-shape";
+import { LCommand, PathShape } from "./glib/path-shape";
 
 const numberOfFourierSamples = 1024;
 
@@ -79,31 +78,15 @@ class Destination {
   // );
 }
 
-/*
-class HandwritingEffect {
-  constructor() {
-// TODO ParagraphLayout.drawPartial() only knows about the canvas.
-// Need to add something similar for SVG.
-
-  }
-  #g : SVGGElement;
-  get topLevelElement () { return this.#g}
-  static make(parent:SVGElement,className ?:string):HandwritingEffect {
-    const result = new this();
-    parent.append(result);
-  }
-}
-  */
-
 const mainSVG = getById("main", SVGSVGElement);
 
 const chapters: Showable[] = [];
 
-const font = Font.cursive(2 / 3);
+const font = Font.cursive(0.55);
 
-function makeChapterTitle(title: string, className: string, index: number) {
+function makeChapterTitle(title: string, className: string) {
   const delayBefore = 500;
-  const duration = 2500;
+  const duration = (2500 / 30) * title.length;
   const delayAfter = 1000;
   const layout = new ParagraphLayout(font);
   const wordInfo = layout.addText(title);
@@ -112,10 +95,6 @@ function makeChapterTitle(title: string, className: string, index: number) {
   const handwriting = createHandwriting(pathShape);
   mainSVG.append(handwriting.topElement);
   handwriting.topElement.classList.add(className);
-  const lineHeight = font.bottom - font.top;
-  handwriting.topElement.style.transform = `translateY(${
-    lineHeight * (index + 1)
-  }px) translateX(${lineHeight * 0.5}px)`;
   const showable = handwriting.makeShowable({
     duration,
     delayAfter,
@@ -132,6 +111,15 @@ function getSegmentLength(iteration: number) {
   return 1 / length;
 }
 
+/**
+ *
+ * @param iteration 1 for the simplest path, 3 vertical lines and two horizontal lines.
+ * @param size How big to make the result.  The will be the width and the height.
+ * The number is in SVG userspace units.
+ * @returns The requested PathShape.  It is made exclusively of L commands.  And every L command is the same length.
+ * The horizontal segments are all a single L command.
+ * The verticals segments are all 2 or 5 L commands.
+ */
 function createPeanoPath(iteration: number, size = 1) {
   const segmentLength = getSegmentLength(iteration);
   function create(iteration: number, up: boolean, right: boolean) {
@@ -180,8 +168,6 @@ function createPeanoPath(iteration: number, size = 1) {
    * I was using 1024 samples for all of my work, and that curve just barely fit.
    * To do a good job we probably don't want to push the limits; it's not unreasonable for a longer segment to have multiple samples inside of it.
    *
-   * Assuming we have enough
-   *
    * I did this mostly for curiosity.
    * The number of segments in the "verbose" column describes the length of the path.
    * The number of segments in the "terse" column describes the number of segments that go all the way from corner to corner.
@@ -229,229 +215,24 @@ function createPeanoPath(iteration: number, size = 1) {
 }
 (window as any).createPeanoPath = createPeanoPath;
 
-{
-  // Script:
-  // One large copy of the first iteration drawing.
-  // Draw it with the handwriting effect.
-  // Leave it in place when finished, where the second and third iterations will cover it.
-  const peano0D = "M 0,1 V 0 H 0.5 V 1 H 1 V 0";
-  const peano0Shape = createPeanoPath(1); //PathShape.fromString(peano0D);
-  const peanoHandwriting = createHandwriting(peano0Shape);
-  peanoHandwriting.topElement.id = "peano-1-main";
-  mainSVG.append(peanoHandwriting.topElement);
-  const peanoShowable = peanoHandwriting.makeShowable({ duration: 2000 });
-  const chapterTitle = makeChapterTitle(
-    "First iteration\nof Peano curve",
-    "iteration-1-text",
-    0
-  );
-  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
-  chapters.push(chapter);
-}
-{
-  // Script:
-  // Create a copy of the first iteration, but in white.
-  // Create it in place, on top of the original.
-  // Maybe use the handwriting effect to introduce it.
-  // Then shrink it down the appropriate amount.
-  // Keep the bottom left corner fixed in place and everything else moves toward that corner.
-  // Keep the stroke width constant despite resizing the path.
-  // Then make a copy of that small white version.
-  // Flip it up into the next position, slightly above the first, upside down.
-  // Then use a handwriting effect to add the missing bar connecting the first to the second.
-  // Then flip the second one up to make the third.
-  // The use handwriting effect to add the missing bar connecting the second to the third.
-  // Then flip right, then down, then down again, then right again, the up again, then up again.
-  const peanoShape = createPeanoPath(2); //PathShape.fromString(peano0D);
-  const peanoHandwriting = createHandwriting(peanoShape);
-  peanoHandwriting.topElement.id = "peano-2-main";
-  mainSVG.append(peanoHandwriting.topElement);
-
-  const peanoShowable = peanoHandwriting.makeShowable({ duration: 6000 });
-
-  function makeShowParts(): Showable {
-    const darker = peanoShape.makeElement();
-    darker.id = "peano-2-dark";
-    const pieces = peanoShape.makeElement();
-    pieces.id = "peano-2-pieces";
-    mainSVG.append(darker, pieces);
-    function hide() {
-      darker.style.display = "none";
-      pieces.style.display = "none";
-    }
-    function show() {
-      darker.style.display = "";
-      pieces.style.display = "";
-    }
-    function showAll() {
-      show();
-      pieces.style.strokeDashoffset = "0";
-      pieces.style.strokeDasharray = "1 0.125";
-    }
-    function showConnectors() {
-      show();
-      pieces.style.strokeDashoffset = `0.125`;
-      pieces.style.strokeDasharray = `0.125 1`;
-    }
-    function showExactCopies() {
-      show();
-      pieces.style.strokeDashoffset = "0";
-      pieces.style.strokeDasharray = "1 1.25";
-    }
-    function showReversedCopies() {
-      show();
-      pieces.style.strokeDashoffset = "1.125";
-      pieces.style.strokeDasharray = "1 1.25";
-    }
-    const result = makeExclusiveInSeries([
-      { show: hide, endTime: 1000 },
-      { show: showAll, endTime: 2000 },
-      { show: showExactCopies, endTime: 2000 },
-      { show: showReversedCopies, endTime: 2000 },
-      { show: showAll, endTime: 2000 },
-      { show: showConnectors, endTime: 5000 },
-      { show: showAll, endTime: 2000 },
-      { show: hide, endTime: 1000 },
-    ]);
-    return result;
-  }
-
-  const chapterTitle = makeChapterTitle(
-    "Second iteration",
-    "iteration-2-text",
-    3
-  );
-  const chapter = makeShowableInParallel([
-    makeShowableInSeries([peanoShowable, makeShowParts()]),
-    chapterTitle,
-  ]);
-  chapters.push(chapter);
-}
-
-{
-  const peanoShape = createPeanoPath(3);
-  const peanoHandwriting = createHandwriting(peanoShape);
-  peanoHandwriting.topElement.id = "peano-3-main";
-  mainSVG.append(peanoHandwriting.topElement);
-  const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
-
-  function makeShowParts(): Showable {
-    const darker = peanoShape.makeElement();
-    darker.id = "peano-3-dark";
-    const pieces = peanoShape.makeElement();
-    pieces.id = "peano-3-pieces";
-    mainSVG.append(darker, pieces);
-    function hide() {
-      darker.style.display = "none";
-      pieces.style.display = "none";
-    }
-    function show() {
-      darker.style.display = "";
-      pieces.style.display = "";
-    }
-    function showExactSmall() {
-      show();
-      pieces.style.strokeDashoffset = "0";
-      pieces.style.strokeDasharray = `${8 / 26} ${(2 + 8) / 26}`;
-    }
-    function showReversedSmall() {
-      show();
-      pieces.style.strokeDashoffset = `${(8 + 1) / 26}`;
-      pieces.style.strokeDasharray = `${8 / 26} ${(2 + 8) / 26}`;
-    }
-    function showAllSmall() {
-      show();
-      pieces.style.strokeDashoffset = "0";
-      pieces.style.strokeDasharray = `${8 / 26} ${1 / 26}`;
-    }
-    function showAll() {
-      show();
-      pieces.style.strokeDashoffset = "0";
-      pieces.style.strokeDasharray = `${80 / 26} ${1 / 26}`;
-    }
-    function showConnectors() {
-      show();
-      pieces.style.strokeDashoffset = `${1 / 26}`;
-      pieces.style.strokeDasharray = `${1 / 26} ${80 / 26}`;
-    }
-    function showExactCopies() {
-      show();
-      pieces.style.strokeDashoffset = "0";
-      pieces.style.strokeDasharray = `${80 / 26} ${(2 + 80) / 26}`;
-    }
-    function showReversedCopies() {
-      show();
-      pieces.style.strokeDashoffset = `${(1 + 80) / 26}`;
-      pieces.style.strokeDasharray = `${80 / 26} ${(2 + 80) / 26}`;
-    }
-    const result = makeExclusiveInSeries([
-      { show: hide, endTime: 1000 },
-      { show: showAllSmall, endTime: 1000 },
-      { show: showExactSmall, endTime: 2000 },
-      { show: showAllSmall, endTime: 1000 },
-      { show: showReversedSmall, endTime: 2000 },
-      { show: showAllSmall, endTime: 1000 },
-      { show: showAll, endTime: 1000 },
-      { show: showExactCopies, endTime: 2000 },
-      { show: showAll, endTime: 1000 },
-      { show: showReversedCopies, endTime: 2000 },
-      { show: showAll, endTime: 1000 },
-      { show: showConnectors, endTime: 1000 },
-      { show: showAll, endTime: 1000 },
-      { show: showConnectors, endTime: 1000 },
-      { show: showAll, endTime: 1000 },
-      { show: showConnectors, endTime: 1000 },
-      { show: hide, endTime: 1000 },
-    ]);
-    return result;
-  }
-
-  const chapterTitle = makeChapterTitle(
-    "Third iteration",
-    "iteration-3-text",
-    5
-  );
-  const chapter = makeShowableInParallel([
-    makeShowableInSeries([peanoShowable, makeShowParts()]),
-    chapterTitle,
-  ]);
-  chapters.push(chapter);
-}
-
-new MainAnimation(makeShowableInSeries(chapters), "peano-vs-fourier");
-
-/*
-for (let iteration =1; iteration <= 3; iteration++) {
-  const path = createPeanoPath(iteration);
-  const verticals = new Map<number, Command[]>();
-  const horizontals = new Map<number, Command[]>();
-  const numberOfBreaks = Math.round(1 / path.commands[1].x);
-  function get(x: number, container: Map<number, Command[]>) {
-    x = Math.round(x *numberOfBreaks)/numberOfBreaks;
-    let result = container.get(x);
-    if (result === undefined) {
-      result = [];
-      container.set(x, result);
-    }
-    return result;
-  }
-  path.commands.forEach((command, index) => {
-    const left = Math.min(command.x0, command.x);
-    const right = Math.max(command.x0, command.x);
-    if (left == right) {
-      get(left, verticals).push(command);
-    } else {
-      get(left, horizontals).push(command);
-    }
-  });
-  console.table([...verticals]);
-  console.table([...horizontals]);
-}
-*/
-
+/**
+ * Create an animation morphing between one iteration of the Peano curve and another.
+ * @param duration In milliseconds.
+ * @param from Initial state.  `iteration == 1` is the smallest legal value.
+ * @param to Final state.  `to.iteration` must be larger than `from.iteration`.
+ * @param midColors Additional colors to use between from.color and to.color.
+ * The default transition between red and var(--blue) (blue with a little green for brightness) got muddy in the middle.
+ * Those two colors are almost complements, so middle state was very desaturated.
+ * Now I explicitly put violet in between red and var(--blue).
+ * That basically makes purple in between red and blue.
+ * I picked that shade of violet because it kept the value of the color consistent through the transition.
+ * @returns
+ */
 function createExpander(
+  duration: number,
   from: { iteration: number; color: string; strokeWidth: string },
-  to: { iteration: number; color: string; strokeWidth: string }
+  to: { iteration: number; color: string; strokeWidth: string },
+  midColors: string[] = []
 ) {
   assertFinite(from.iteration, to.iteration);
   if (
@@ -467,6 +248,12 @@ function createExpander(
    *
    * The vertical lines will have indices between 0 and this, inclusive.
    * Divide an index by this to get an x position, a value between 0 and 1 inclusive.
+   *
+   * This is the width of the curve, measured in the number of segments needed to go straight across.
+   *
+   * This is also the height of the curve, which always fits in a square.
+   * That is less obvious because you never see a single vertical segment.
+   * They always appear in groups of 2 or 5.
    */
   const fromCountVertical = Math.round(1 / getSegmentLength(from.iteration));
   /**
@@ -546,45 +333,24 @@ function createExpander(
     "http://www.w3.org/2000/svg",
     "path"
   );
-  pathElement.animate(
-    [
-      {
-        strokeWidth: from.strokeWidth,
-        stroke: from.color,
-        d: fromPath.cssPath,
-      },
-      { strokeWidth: to.strokeWidth, stroke: to.color, d: toPath.cssPath },
-    ],
+  const animation = pathElement.animate(
     {
-      duration: 5000,
-      iterations: Infinity,
+      strokeWidth: [from.strokeWidth, to.strokeWidth],
+      stroke: [from.color, ...midColors, to.color],
+      d: [fromPath.cssPath, toPath.cssPath],
+    },
+    {
+      duration,
+      fill: "both",
       easing: "ease-out",
     }
   );
-  console.log([
-    {
-      strokeWidth: from.strokeWidth,
-      stroke: from.color,
-      d: fromPath.cssPath,
-    },
-    { stokeWidth: to.strokeWidth, stroke: to.color, d: toPath.cssPath },
-  ]);
+  animation.pause();
   pathElement.style.transform = "translate(0.5px, 1.5px) scale(7)";
   pathElement.style.strokeLinecap = "square";
   pathElement.style.fill = "none";
   pathElement.style.strokeWidth = "0.05";
-  return pathElement;
-  // ÷ 8
-  // 0 -> 0 \
-  // 8 -> 2 /
-  // 9 -> 3  \
-  // 17 -> 5 /
-  // 18 -> 6 \
-  // 26 -> 8 /
-
-  // ÷ 2
-  // 0 -> 0 \
-  // 8 -> 2 /
+  return { pathElement, animation };
 }
 const state1 = { iteration: 1, color: "red", strokeWidth: "0.045" };
 const state2 = {
@@ -597,9 +363,71 @@ const state3 = {
   color: "var(--blue)",
   strokeWidth: "0.015",
 };
-const morph12 = createExpander(state1, state2);
-const morph13 = createExpander(state1, state3);
-const morph23 = createExpander(state2, state3);
-console.log([morph12, morph13, morph23]);
+//const morph12 = createExpander(state1, state2);
+//const morph13 = createExpander(state1, state3, ["rgb(128, 0, 255)"]);
+//const morph23 = createExpander(state2, state3);
 
-//console.table(initializedArray(5, (i) => Math.round(1/getSegmentLength(i))+1));
+{
+  // Script:
+  // One large copy of the first iteration drawing.
+  // Draw it with the handwriting effect.
+  // Leave it in place when finished, where the second and third iterations will cover it.
+  const peano0Shape = createPeanoPath(1); //PathShape.fromString(peano0D);
+  const peanoHandwriting = createHandwriting(peano0Shape);
+  peanoHandwriting.topElement.id = "peano-1-main";
+  mainSVG.append(peanoHandwriting.topElement);
+  const peanoShowable = peanoHandwriting.makeShowable({ duration: 3000 });
+  const chapterTitle = makeChapterTitle(
+    "First iteration of Peano curve",
+    "iteration-1-text"
+  );
+  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
+  chapters.push(chapter);
+}
+{
+  const peanoShape = createPeanoPath(2);
+  const peanoHandwriting = createHandwriting(peanoShape);
+  peanoHandwriting.topElement.id = "peano-2-main";
+  mainSVG.append(peanoHandwriting.topElement);
+
+  const duration = 6000;
+  const peanoShowable = peanoHandwriting.makeShowable({ duration });
+
+  const initialPause = 500;
+  const finalPause = 1000;
+  const expander = createExpander(
+    duration - initialPause - finalPause,
+    state1,
+    state2
+  );
+  mainSVG.append(expander.pathElement);
+  const morph: Showable = {
+    endTime: duration,
+    show(timeInMs) {
+      if (timeInMs < 0 || timeInMs > duration) {
+        expander.pathElement.style.display = "none";
+      } else {
+        expander.pathElement.style.display = "";
+        expander.animation.currentTime = timeInMs - initialPause;
+      }
+    },
+  };
+
+  const chapterTitle = makeChapterTitle("Second", "iteration-2-text");
+  const chapter = makeShowableInParallel([peanoShowable, morph, chapterTitle]);
+  chapters.push(chapter);
+}
+
+{
+  const peanoShape = createPeanoPath(3);
+  const peanoHandwriting = createHandwriting(peanoShape);
+  peanoHandwriting.topElement.id = "peano-3-main";
+  mainSVG.append(peanoHandwriting.topElement);
+  const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
+
+  const chapterTitle = makeChapterTitle("Third", "iteration-3-text");
+  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
+  chapters.push(chapter);
+}
+
+new MainAnimation(makeShowableInSeries(chapters), "peano-vs-fourier");
