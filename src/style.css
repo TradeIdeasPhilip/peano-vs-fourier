@@ -149,3 +149,15 @@ g.handwriting > path {
   stroke-dasharray: 0, calc(var(--length) + 1), calc(var(--length) + 1), 0;
   stroke-dashoffset: calc(0 - var(--position));
 }
+
+#placeholder1 {
+  fill: hsl(210, 100%, 50%);
+  font-size: 2px;
+  transform: translate(0.25px, 2px);
+}
+
+#placeholder2 {
+  fill: hsl(30, 100%, 50%);
+  font-size: 2px;
+  transform: translate(2.2px, 8.7px);
+}

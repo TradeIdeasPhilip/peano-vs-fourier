@@ -1,8 +1,36 @@
-import { makeBoundedLinear, positiveModulo } from "phil-lib/misc";
+import { positiveModulo } from "phil-lib/misc";
 
+/**
+ * This represents an animation.
+ * This might be the entire animation we intend to display or record.
+ * Or this might be a part of the animation that will be joined with other parts.
+ */
 export type Showable = {
+  /**
+   * Set up the DOM to draw the current state.
+   *
+   * This should have no other assumptions or side effects.
+   * The system can call show with any input at any time.
+   * @param timeInMs Show the animation at this time.
+   *
+   * This will typically be between 0 and `duration`, inclusive.
+   * See addMargins() or MakeShowableInSeries or makeShowableInSeries() if you need to be certain.
+   */
   show(timeInMs: number): void;
+  /**
+   * We have an explicit hide step for two reasons:
+   * * All of the hide() requests are sent first, before certain items are shown.  This is helpful when multiple Showable objects control the same DOM element.
+   * * MakeShowableInSeries will be careful never to display two items at the same time.  It takes care of the boundary case, the time when one is ending and the next is starting.
+   */
   hide(): void;
+  /**
+   * How long should this effect last?
+   * This should not be negative.
+   *
+   * This can be +Infinity.
+   * That could be a problem when saving to a file.
+   * That can be overridden by MakeShowableInParallel.
+   */
   readonly duration: number;
 };
 
@@ -64,6 +92,9 @@ export class MakeShowableInSeries {
   add(showable: Showable) {
     if (this.#used) {
       throw new Error("wtf");
+    }
+    if (this.#duration === Infinity) {
+      throw new Error("Cannot add new Showable after infinite time.");
     }
     const newEntry = { start: this.#duration, showable };
     notNegative(showable.duration);
@@ -159,31 +190,15 @@ export function makeRepeater(showable: Showable, count = Infinity): Showable {
   return { duration: repeaterDuration, show, hide };
 }
 
-// makeShowableInSeries() takes two types of items.
-// Actual items work more or less like they do now.
-// But we add placeholders.
-// A placeholder doesn't have a show() or a hide().
-// A placeholder has a duration and that will reserve space as normal.
-// The duration can be 0 but cannot be negative.
-// None of the other items will run at the reserved time.
-// For each placeholder, makeShowableInSeries() will return a start time,
-// the time when this item would have started if it were not a placeholder.
-// The caller can modify that as desired, maybe starting early or ending late.
-// The caller can then use makeShowableInParallel() to join these modified showable objects
-// and the new showable that handles the non-placeholder-items.
-// Will these nest?
-
-// Or makeShowableInSeries() becomes builder object.
-// builder.add(nextShowable);
-// const mark1 = builder.duration;  // The current duration
-// builder.skip(7000); // An empty showable, or something more efficient, with this duration.
-// const series : Showable = builder.build();
-
 /**
  * This ensures that the base will be hidden before and after it's requested time slot.
+ * This can add additional time before and after the base executes.
  * @param base Show this items.
- * @param before Wait this many milliseconds before showing `base`.
- * @param after Wait this many milliseconds after showing `base`.
+ * @param extra
+ * * hiddenBefore Wait this many milliseconds before showing `base`.  Default is 0.
+ * * hiddenAfter Wait this many milliseconds after showing `base`.  Default is 0.
+ * * frozenBefore Hold the initial image of `base` for this many milliseconds.  Default is 0.
+ * * frozenAfter Hold the final image of `base` for this many milliseconds.  Default is 0.
  * @returns
  */
 export function addMargins(
@@ -241,7 +256,7 @@ export function addMargins(
  * @param hideAlso Alo do this in calls to hide().
  * @returns
  */
-function makeAutoHider(
+export function makeAutoHider(
   duration: number,
   element: HTMLElement | SVGElement,
   showAlso = (timeInMS: number) => {},
@@ -265,23 +280,6 @@ function makeAutoHider(
  * @param element To auto hide and show.
  * @returns
  */
-function commonHider(base: Showable, element: HTMLElement | SVGElement) {
+export function commonHider(base: Showable, element: HTMLElement | SVGElement) {
   return makeAutoHider(base.duration, element, base.show.bind(base));
 }
-
-// If duration == infinity
-// If you have a series of Showable objects, +infinity should be allowed for the last duration,
-// trying to add or skip more after that throws an exception
-// If you have a set of Showable objects in parallel, then the duration of the whole should be the max of all finite durations of the children.
-// Or not, maybe there's an explicit way to say "don't include this duration when computing the total duration".
-// Yes, let's make it explicit.
-// Yuck, start and end are not symmetric.
-// You have to set a start time in addMargins.
-// Before that time nothing shows.
-// But you can create an infinite hold time at the end.
-// So the animation could keep showing its final frame forever.
-// This is relevant in a makeParallel() which will shut it off when other operations finish.
-// What about the top level debug?
-// Do we want to freeze the last frame?
-// NaN and all negative numbers, including -infinity, are never valid durations.
-// TODO check if serial is already infinity.  I think the rest has already been done.
