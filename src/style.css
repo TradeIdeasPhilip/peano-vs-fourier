@@ -93,7 +93,7 @@ body {
   fill: none;
   stroke: red;
   stroke-width: 0.045;
-  transform: translateY(0.125px) translateX(0.125px);
+  transform: translateY(0.375px) translateX(0.5px);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -102,7 +102,7 @@ body {
   fill: none;
   stroke: white;
   stroke-width: 0.045;
-  transform: translateY(0.125px) translateX(11px);
+  transform: translateY(0.375px) translateX(7.9375px);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -111,7 +111,7 @@ body {
   fill: none;
   stroke: var(--blue);
   stroke-width: 0.045;
-  transform: translateY(0.125px) translateX(13.8px);
+  transform: translateY(0.375px) translateX(12px);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -132,39 +132,7 @@ body {
   transform: translate(8.5px, 1.5px) scale(7);
 }
 
-#peano-2-dark {
-  fill: none;
-  stroke: color-mix(in srgb, black, white);
-  stroke-width: 0.03;
-  stroke-linecap: square;
-  transform: translate(8.5px, 1.5px) scale(7);
-}
-
-#peano-2-pieces {
-  fill: none;
-  stroke: white;
-  stroke-width: 0.03;
-  stroke-linecap: square;
-  transform: translate(8.5px, 1.5px) scale(7);
-}
-
 #peano-3-main {
-  fill: none;
-  stroke: var(--blue);
-  stroke-width: 0.015;
-  stroke-linecap: square;
-  transform: translate(8.5px, 1.5px) scale(7);
-}
-
-#peano-3-dark {
-  fill: none;
-  stroke: color-mix(in srgb, black, var(--blue));
-  stroke-width: 0.015;
-  stroke-linecap: square;
-  transform: translate(8.5px, 1.5px) scale(7);
-}
-
-#peano-3-pieces {
   fill: none;
   stroke: var(--blue);
   stroke-width: 0.015;

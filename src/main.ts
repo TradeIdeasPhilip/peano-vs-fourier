@@ -80,11 +80,11 @@ class Destination {
 
 const mainSVG = getById("main", SVGSVGElement);
 
-const font = Font.cursive(0.55);
+const font = Font.cursive(0.37);
 
 function makeChapterTitle(title: string, className: string) {
   const delayBefore = 500;
-  const duration = (2500 / 30) * ((title.length * 2 + 30) / 3);
+  const duration = (2500 / 30) * ((title.length + 30) / 2);
   const delayAfter = 1000;
   const layout = new ParagraphLayout(font);
   const wordInfo = layout.addText(title);
@@ -420,7 +420,7 @@ const inSeries = new MakeShowableInSeries();
   const duration = 6000;
   const peanoShowable = peanoHandwriting.makeShowable({ duration });
 
-  const chapterTitle = makeChapterTitle("Second", "iteration-2-text");
+  const chapterTitle = makeChapterTitle("Second iteration", "iteration-2-text");
   builder.add(
     addMargins(chapterTitle, {
       hiddenBefore: inSeries.duration,
@@ -455,7 +455,7 @@ const inSeries = new MakeShowableInSeries();
   mainSVG.append(peanoHandwriting.topElement);
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
 
-  const chapterTitle = makeChapterTitle("Third", "iteration-3-text");
+  const chapterTitle = makeChapterTitle("Third iteration", "iteration-3-text");
   builder.add(
     addMargins(chapterTitle, {
       hiddenBefore: inSeries.duration,
