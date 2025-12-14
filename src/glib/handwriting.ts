@@ -86,7 +86,6 @@ export function createHandwriting(...pathShapes: PathShape[]): Handwriting {
     const duration = options.duration;
     const delayBefore = options.delayBefore ?? 0;
     const delayAfter = options.delayAfter ?? 0;
-    const endTime = delayBefore + duration + delayAfter;
     const timeToPosition = makeLinear(
       delayBefore,
       0,
@@ -98,7 +97,10 @@ export function createHandwriting(...pathShapes: PathShape[]): Handwriting {
         const position = timeToPosition(time);
         topElement.style.setProperty("--total-position", position.toString());
       },
-      endTime,
+      hide() {
+        topElement.style.setProperty("--total-position", "-1");
+      },
+      duration: delayBefore + duration + delayAfter,
     };
   }
   return { topElement, allPaths, show, totalLength, makeShowable };

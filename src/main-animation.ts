@@ -41,7 +41,7 @@ export class MainAnimation {
    * This is public mostly for debugging reasons.
    */
   get endTime() {
-    return this.#showable.endTime;
+    return this.#showable.duration;
   }
   private initScreenCapture(script: unknown) {
     document
@@ -58,7 +58,7 @@ export class MainAnimation {
     return {
       source: this.source,
       script,
-      seconds: this.#showable.endTime / 1000,
+      seconds: this.#showable.duration / 1000,
       devicePixelRatio,
     };
   }

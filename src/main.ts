@@ -11,8 +11,9 @@ import { Font } from "./glib/letters-base";
 import { createHandwriting } from "./glib/handwriting";
 import { MainAnimation } from "./main-animation";
 import {
-  makeShowableInParallel,
-  makeShowableInSeries,
+  addMargins,
+  MakeShowableInParallel,
+  MakeShowableInSeries,
   Showable,
 } from "./showable";
 import { LCommand, PathShape } from "./glib/path-shape";
@@ -78,8 +79,6 @@ class Destination {
 }
 
 const mainSVG = getById("main", SVGSVGElement);
-
-const chapters: Showable[] = [];
 
 const font = Font.cursive(0.55);
 
@@ -355,14 +354,13 @@ function createExpander(
   pathElement.style.strokeWidth = "0.05";
   mainSVG.append(pathElement);
   return {
-    endTime: duration,
+    duration,
     show(timeInMs) {
-      if (timeInMs < 0 || timeInMs > duration) {
-        pathElement.style.display = "none";
-      } else {
-        pathElement.style.display = "";
-        animation.currentTime = timeInMs - delay;
-      }
+      pathElement.style.display = "";
+      animation.currentTime = timeInMs - delay;
+    },
+    hide() {
+      pathElement.style.display = "none";
     },
   };
 }
@@ -381,6 +379,9 @@ const state3 = {
 //const morph13 = createExpander(state1, state3, ["rgb(128, 0, 255)"]);
 //const morph23 = createExpander(state2, state3);
 
+const builder = new MakeShowableInParallel();
+const inSeries = new MakeShowableInSeries();
+
 {
   // Script:
   // One large copy of the first iteration drawing.
@@ -390,13 +391,25 @@ const state3 = {
   const peanoHandwriting = createHandwriting(peano0Shape);
   peanoHandwriting.topElement.id = "peano-1-main";
   mainSVG.append(peanoHandwriting.topElement);
-  const peanoShowable = peanoHandwriting.makeShowable({ duration: 3000 });
+  const peanoShowable = peanoHandwriting.makeShowable({ duration: 2000 });
   const chapterTitle = makeChapterTitle(
     "First iteration of Peano curve",
     "iteration-1-text"
   );
-  const chapter = makeShowableInParallel([peanoShowable, chapterTitle]);
-  chapters.push(chapter);
+  builder.add(
+    addMargins(chapterTitle, {
+      hiddenBefore: inSeries.duration,
+      frozenAfter: Infinity,
+    }),
+    0
+  );
+  builder.add(
+    addMargins(peanoShowable, {
+      hiddenBefore: inSeries.duration,
+      frozenAfter: Infinity,
+    })
+  );
+  inSeries.skip(Math.max(chapterTitle.duration, peanoShowable.duration) + 500);
 }
 {
   const peanoShape = createPeanoPath(2);
@@ -406,6 +419,21 @@ const state3 = {
 
   const duration = 6000;
   const peanoShowable = peanoHandwriting.makeShowable({ duration });
+
+  const chapterTitle = makeChapterTitle("Second", "iteration-2-text");
+  builder.add(
+    addMargins(chapterTitle, {
+      hiddenBefore: inSeries.duration,
+      frozenAfter: Infinity,
+    }),
+    0
+  );
+  builder.add(
+    addMargins(peanoShowable, {
+      hiddenBefore: inSeries.duration,
+      frozenAfter: Infinity,
+    })
+  );
 
   const initialPause = 500;
   const finalPause = 1000;
@@ -417,13 +445,7 @@ const state3 = {
     state2
   );
 
-  const chapterTitle = makeChapterTitle("Second", "iteration-2-text");
-  const chapter = makeShowableInParallel([
-    peanoShowable,
-    expander,
-    chapterTitle,
-  ]);
-  chapters.push(chapter);
+  inSeries.add(expander);
 }
 
 {
@@ -433,16 +455,27 @@ const state3 = {
   mainSVG.append(peanoHandwriting.topElement);
   const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
 
+  const chapterTitle = makeChapterTitle("Third", "iteration-3-text");
+  builder.add(
+    addMargins(chapterTitle, {
+      hiddenBefore: inSeries.duration,
+      frozenAfter: Infinity,
+    }),
+    0
+  );
+  builder.add(
+    addMargins(peanoShowable, {
+      hiddenBefore: inSeries.duration,
+      frozenAfter: Infinity,
+    })
+  );
+
   const expander1 = createExpander(9000, 500, 1500, state2, state3);
   const expander2 = createExpander(9000, 1000, 1500, state1, state3);
-
-  const chapterTitle = makeChapterTitle("Third", "iteration-3-text");
-  const chapter = makeShowableInParallel([
-    peanoShowable,
-    makeShowableInSeries([expander1, expander2]),
-    chapterTitle,
-  ]);
-  chapters.push(chapter);
+  inSeries.add(expander1);
+  inSeries.add(expander2);
 }
 
-new MainAnimation(makeShowableInSeries(chapters), "peano-vs-fourier");
+builder.add(inSeries.build());
+
+new MainAnimation(builder.build(), "peano-vs-fourier");
