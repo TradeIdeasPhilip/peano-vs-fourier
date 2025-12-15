@@ -161,3 +161,52 @@ g.handwriting > path {
   font-size: 2px;
   transform: translate(2.2px, 8.7px);
 }
+
+[data-fi] {
+  fill: none;
+  stroke-width: 0.1;
+  stroke-linejoin: round;
+}
+
+[data-fi="1"] {
+  stroke: red;
+  transform: translateX(0px) translateY(1.25px);
+}
+[data-fi="2"] {
+  stroke: white;
+  transform: translateX(5.5px) translateY(1.25px);
+}
+[data-fi="3"] {
+  stroke: var(--blue);
+  transform: translateX(11px) translateY(1.25px);
+}
+
+#handwriting-less-detail {
+  fill: none;
+  stroke: red;
+  stroke-width: 0.045;
+  transform: translateY(0.375px) translateX(0.95px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#handwriting-some-detail {
+  fill: none;
+  stroke: white;
+  stroke-width: 0.045;
+  transform: translateY(0.375px) translateX(6.2px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#handwriting-more-detail {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 0.045;
+  transform: translateY(0.375px) translateX(11.65px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.way-more-detail {
+  transform: translateX(5px) translateY(0.18px) scale(3) !important;
+  stroke-width: 0.03333;
+}

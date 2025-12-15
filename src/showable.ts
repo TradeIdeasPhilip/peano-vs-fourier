@@ -94,7 +94,7 @@ export class MakeShowableInSeries {
       throw new Error("wtf");
     }
     if (this.#duration === Infinity) {
-      throw new Error("Cannot add new Showable after infinite time.");
+      console.warn("Adding a new Showable after infinite time.");
     }
     const newEntry = { start: this.#duration, showable };
     notNegative(showable.duration);
