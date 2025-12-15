@@ -43,10 +43,20 @@ function notNegative(value: number) {
 export class MakeShowableInParallel {
   readonly #all: Showable[] = [];
   #duration = 0;
-  add(showable: Showable, duration = showable.duration) {
-    notNegative(duration);
+  add(showable: Showable, minDuration = showable.duration) {
+    notNegative(minDuration);
     this.#all.push(showable);
-    this.#duration = Math.max(this.#duration, duration);
+    this.#duration = Math.max(this.#duration, minDuration);
+  }
+  /**
+   * This will add an item and it will extend the last frame to the end of the composite Showable object.
+   * @param showable To be added.
+   */
+  addJustified(showable: Showable) {
+    this.add(
+      addMargins(showable, { frozenAfter: Infinity }),
+      showable.duration
+    );
   }
   build(): Showable {
     const duration = this.#duration;

@@ -12,8 +12,6 @@ import {
   samplesToFourier,
   termsToParametricFunction,
 } from "./fourier-shared";
-import "./fourier-smackdown.css";
-import { panAndZoom, panAndZoomString, rectToRect, rehome } from "./transforms";
 import { PathBuilder, PathCaliper, PathShape } from "./path-shape";
 import {
   assertClass,
@@ -97,146 +95,6 @@ class MotionBlurSpinner {
     this.#style.display = "none";
   }
 }
-
-class FrequencySpinners {
-  readonly #spinners: readonly {
-    readonly top: SVGGElement;
-    readonly oldSpinner: SVGPolygonElement;
-    readonly newSpinner: MotionBlurSpinner;
-    readonly text: SVGTextElement;
-  }[];
-  constructor(parent: string | SVGGElement) {
-    if (!(parent instanceof SVGGElement)) {
-      parent = querySelector(parent, SVGGElement);
-    }
-    this.#spinners = querySelectorAll(
-      "g.frequency",
-      SVGGElement,
-      0,
-      Infinity,
-      parent
-    ).map((top) => {
-      const text = querySelector("text", SVGTextElement, top);
-      return {
-        top,
-        oldSpinner: querySelector(".spinner", SVGPolygonElement, top),
-        newSpinner:
-          undefined! /*assertNonNullable(MotionBlurSpinner.available.shift())*/,
-        text,
-      };
-    });
-  }
-  show(terms: readonly FourierTerm[], progressInRadians: number) {
-    this.#spinners.forEach((spinner, index, array) => {
-      if (index >= terms.length) {
-        spinner.top.style.display = "none";
-        spinner.newSpinner.hide();
-      } else {
-        spinner.top.style.display = "";
-        const term = terms[index];
-        let text = term.frequency.toString();
-        if (index == array.length - 1 && array.length < terms.length) {
-          // This is the last one that we can display,
-          // because we are out of room,
-          // but there are more terms to display.
-          text += ", …";
-        }
-        spinner.text.innerHTML = spinner.text.innerHTML = text;
-        const angleToDisplay = progressInRadians * term.frequency + term.phase;
-        spinner.oldSpinner.style.transform = `rotate(${
-          angleToDisplay + FULL_CIRCLE / 4
-        }rad)`;
-        spinner.newSpinner.showRadians(angleToDisplay);
-      }
-    });
-  }
-}
-
-type Options = {
-  base: FourierBase;
-  destination: Destination;
-  referenceColor: string;
-  liveColor: string;
-};
-
-// TODO add in y1 and y2, rather than just assuming they are 0 and 1.
-function makeEasing(x1: number, x2: number) {
-  if (x1 >= x2) {
-    throw new Error("wtf");
-  }
-  const inputMap = makeLinear(x1, 0, x2, 1);
-  function customEasing(t: number) {
-    if (t <= x1) {
-      return 0;
-    } else if (t >= x2) {
-      return 1;
-    }
-    const input = inputMap(t);
-    const eased = ease(input);
-    return eased;
-  }
-  return customEasing;
-}
-
-/**
- * This knows about the SVG elements implementing this effect.
- * And this knows about the screen real estate reserves for this effect.
- * These are closely related as we use the SVG element to transform the effect to make it fit.
- */
-class Destination {
-  readonly #gElement: SVGGElement;
-  readonly #referencePath: SVGPathElement;
-  readonly #livePath: readonly SVGPathElement[];
-  constructor(
-    top: SVGGElement,
-    readonly getTransform: (content: ReadOnlyRect) => DOMMatrix
-  ) {
-    this.#gElement = top;
-    this.#referencePath = querySelector(
-      "[data-reference]",
-      SVGPathElement,
-      this.#gElement
-    );
-    this.#livePath = querySelectorAll(
-      "[data-live]",
-      SVGPathElement,
-      1,
-      Infinity,
-      this.#gElement
-    );
-  }
-  hide() {
-    this.#gElement.style.display = "none";
-  }
-  show(referenceColor: string, _liveColor: string) {
-    this.#gElement.style.display = "";
-    this.#referencePath.style.stroke = referenceColor;
-    //this.#livePath.style.stroke = liveColor;
-  }
-  setReferencePath(d: string) {
-    this.#referencePath.setAttribute("d", d);
-  }
-  setLivePath(d: string) {
-    this.#livePath.forEach((path) => path.setAttribute("d", d));
-  }
-  setTransform(transform: DOMMatrix) {
-    const scale = transform.a;
-    this.#gElement.style.transform = transform.toString();
-    this.#gElement.style.setProperty("--path-scale", scale.toString());
-  }
-  static right = new Destination(
-    getById("right", SVGGElement),
-    (content: ReadOnlyRect) =>
-      panAndZoom(
-        content,
-        { x: 1, y: 1, width: 14, height: 7 },
-        "srcRect fits completely into destRect",
-        1
-      )
-  );
-}
-
-const pathCaliper = new PathCaliper();
 
 class Timer {
   #remainderToT: LinearFunction;
@@ -524,99 +382,6 @@ class FourierAnimation {
   }
 }
 
-/**
- * A pair of vertices.
- * The order doesn't matter.
- */
-class Edge {
-  constructor(readonly vertex1: number, readonly vertex2: number) {}
-  has(vertex: number) {
-    return vertex == this.vertex1 || vertex == this.vertex2;
-  }
-  other(vertex: number) {
-    if (this.vertex1 == vertex) {
-      return this.vertex2;
-    }
-    if (this.vertex2 == vertex) {
-      return this.vertex1;
-    }
-    return undefined;
-  }
-}
-
-{
-  class ShapeMaker5 {
-    private constructor(_: never) {
-      throw new Error("wtf");
-    }
-    static readonly points: readonly {
-      readonly x: number;
-      readonly y: number;
-    }[] = initializedArray(5, (n) => {
-      const angle = (FULL_CIRCLE * n) / 5 + FULL_CIRCLE / 4;
-      const x = Math.cos(angle);
-      const y = Math.sin(angle);
-      return { x, y };
-    });
-    static readonly allPaths: readonly Path[] = [
-      ...Progress.getUnique(Progress.getSamples().pentagram),
-    ];
-  }
-  ShapeMaker5;
-  class ShapeMaker6 {
-    private constructor(_: never) {
-      throw new Error("wtf");
-    }
-    static readonly points: readonly {
-      readonly x: number;
-      readonly y: number;
-    }[] = initializedArray(6, (n) => {
-      const angle = (FULL_CIRCLE * n) / 6 + FULL_CIRCLE / 4;
-      const x = Math.cos(angle);
-      const y = Math.sin(angle);
-      return { x, y };
-    });
-    static readonly allPaths: readonly Path[] = [
-      ...Progress.getUnique(Progress.getSamples().dodecahedron),
-    ];
-    static makePathShape(index: number) {
-      const path = this.allPaths[index];
-      const pathBuilder = PathBuilder.M(points[0].x, points[0].y);
-      path.forEach((vertex, index) => {
-        if (index == 0) {
-          if (vertex != 0) {
-            throw new Error("wtf");
-          }
-        } else {
-          const { x, y } = points[vertex];
-          const previousVertex = path[index - 1];
-          const stepsForward = positiveModulo(vertex - previousVertex, 6);
-          switch (stepsForward) {
-            case 1: {
-              pathBuilder.arc(0, 0, x, y, "cw");
-              break;
-            }
-            case 2:
-            case 4: {
-              pathBuilder.L(x, y);
-              break;
-            }
-            case 5: {
-              pathBuilder.arc(0, 0, x, y, "ccw");
-              break;
-            }
-            default: {
-              throw new Error("wtf");
-            }
-          }
-        }
-      });
-      return pathBuilder.pathShape;
-    }
-  }
-  const points = ShapeMaker6.points;
-
-  const allPaths = ShapeMaker6.allPaths;
 
   const colorPairs = [
     { light: "var(--pastel-blue)", dark: "var(--darker-blue)" },
@@ -626,7 +391,7 @@ class Edge {
     { light: "var(--pastel-coral)", dark: "var(--darker-coral)" },
   ];
 
-  const random = Random.fromString("fourier-smackdown.ts");
+  const random = Random.fromString("fourier-.ts");
   const colorsByIndex = initializedArray(allPaths.length, () => {
     const index = (random() * 3) | 0;
     const thisTime = colorPairs[index];
