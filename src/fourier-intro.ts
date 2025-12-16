@@ -2,11 +2,16 @@ import { getById, querySelectorAll } from "phil-lib/client-misc";
 import {
   assertNonNullable,
   initializedArray,
-  LinearFunction,
   makeBoundedLinear,
   makeLinear,
 } from "phil-lib/misc";
-import { commonHider, MakeShowableInParallel, Showable } from "./showable";
+import {
+  addMargins,
+  commonHider,
+  MakeShowableInParallel,
+  makeShowableInSeries,
+  Showable,
+} from "./showable";
 import { PathShape } from "./glib/path-shape";
 import { Font } from "./glib/letters-base";
 import { ParagraphLayout } from "./glib/paragraph-layout";
@@ -50,7 +55,7 @@ type Destination = { hide(): void; show(rawPathString: string): void };
 function simpleDestination(pathElement: SVGPathElement) {
   return {
     hide() {
-      pathElement.style.display = "none";
+      pathElement.setAttribute("d", "");
     },
     show(rawPathString: string) {
       pathElement.setAttribute("d", rawPathString);
@@ -95,35 +100,6 @@ function makeEasing(x1: number, x2: number) {
   return customEasing;
 }
 
-class Timer {
-  #remainderToT: LinearFunction;
-  readonly endTime: number;
-  constructor(
-    private readonly numberOfSteps: number,
-    private readonly period: number,
-    startTime = 0,
-    endTime = period - startTime
-  ) {
-    this.#remainderToT = makeBoundedLinear(startTime, 0, endTime, 1);
-    this.endTime = period * numberOfSteps;
-  }
-  get(timeInMs: number) {
-    let index = Math.floor(timeInMs / this.period);
-    let remainder: number;
-    if (index < 0) {
-      index = 0;
-      remainder = 0;
-    } else if (index >= this.numberOfSteps) {
-      index = this.numberOfSteps - 1;
-      remainder = this.period;
-    } else {
-      remainder = timeInMs % this.period;
-    }
-    const t = this.#remainderToT(remainder);
-    return { index, t };
-  }
-}
-
 class FourierBase {
   readonly samples: readonly Complex[];
   readonly terms: FourierTerm[];
@@ -148,28 +124,20 @@ class FourierBase {
   get numberOfSteps() {
     return this.keyframes.length - 1;
   }
-  makeGetPath1(timer: Timer): (timeInMs: number) => string {
-    const getPath2 = this.makeGetPath2();
-    function getPath1(timeInMs: number) {
-      const { index, t } = timer.get(timeInMs);
-      const pathString = getPath2(index, t);
-      return pathString;
-    }
-    return getPath1;
-  }
-  private makeGetPath2(): (index: number, t: number) => string {
+  /**
+   * This does a lot of one time setup for displaying all of the animations.
+   * This returns a function that is hiding a lot of internal state.
+   *
+   * @returns An array of functions each of which take progress of 0-1 as input and return a path string.
+   *
+   * Note that there is one entry in the array for each _transition_.
+   * Fencepost!
+   * The number of transitions is one less than the number of states.
+   */
+  makeGetPath2(): ((progress: number) => string)[] {
     const terms = [...this.terms];
     const toShow = [...this.keyframes];
     const numberOfSteps = this.numberOfSteps;
-    /**
-     * Special case:  A dot is moving.
-     *    Going from 0 terms to 1 term with frequency = zero.
-     *    Don't even think about the animation that we do in other places.
-     *    This script is completely unique.
-     *    Draw a single line for the path.
-     *    Both ends start at the first point.
-     *    Use makeEasing() to move the points smoothly.
-     */
     const getMaxFrequency = (numberOfTerms: number) => {
       const maxFrequency = Math.max(
         ...terms.slice(0, numberOfTerms).map((term) => Math.abs(term.frequency))
@@ -184,105 +152,143 @@ class FourierBase {
         return 8 * Math.min(maxFrequency, 50) + 7;
       }
     };
-    const segmentInfo = initializedArray(numberOfSteps, (index) => {
-      const startingTermCount = toShow[index];
-      const endingTermCount = toShow[index + 1];
-      if (
-        startingTermCount == 0 &&
-        endingTermCount == 1 &&
-        terms[0].frequency == 0
-      ) {
-        // Moving a dot.
-        const goal = assertNonNullable(hasFixedContribution(terms[0]));
-        /**
-         * @param t A value between 0 and 1.
-         * @returns The coordinates as a string.
-         */
-        function location(t: number) {
-          return `${goal.x * t},${goal.y * t}`;
-        }
-        const getLeadingProgress = makeEasing(0, 0.5);
-        const getTrailingProgress = makeEasing(0, 1);
-        return (t: number) => {
-          const trailingProgress = getTrailingProgress(t);
-          const from = location(trailingProgress);
-          const leadingProgress = getLeadingProgress(t);
-          const to = location(leadingProgress);
-          const pathString = `M ${from} L ${to}`;
-          // console.log({ t, trailingProgress, leadingProgress, pathString });
-          return pathString;
-        };
-      } else if (startingTermCount == endingTermCount) {
-        const parametricFunction = termsToParametricFunction(
-          terms,
-          startingTermCount
-        );
-        const numberOfDisplaySegments =
-          recommendedNumberOfSegments(endingTermCount);
-        const path = PathShape.glitchFreeParametric(
-          parametricFunction,
-          numberOfDisplaySegments
-        );
-        const result = path.rawPath;
-        return (_timeInMs: number): string => {
-          return result;
-        };
-      } else {
-        // TODO this should probably be the largest from the group that we are adding.
-        const firstInterestingFrequency = Math.abs(
-          terms[startingTermCount].frequency
-        );
-        const r = 0.2 / firstInterestingFrequency;
-        /**
-         * This creates a function which takes a time in milliseconds,
-         * 0 at the beginning of the script.
-         * The output is scaled to the range 0 - 1,
-         * for use with PathShape.parametric().
-         * The output might be outside of that range.
-         * I.e. the input and output are both numbers but they are interpreted on different scales.
-         */
-        const tToCenter = makeBoundedLinear(0, -r, 1, 1 + r);
-        const startingFunction = termsToParametricFunction(
-          terms,
-          startingTermCount
-        );
-        const addingFunction = termsToParametricFunction(
-          terms,
-          endingTermCount - startingTermCount,
-          startingTermCount
-        );
-        const numberOfDisplaySegments =
-          recommendedNumberOfSegments(endingTermCount);
+    const result: ((t: number) => string)[] = initializedArray(
+      numberOfSteps,
+      (index) => {
+        const startingTermCount = toShow[index];
+        const endingTermCount = toShow[index + 1];
         if (
-          startingTermCount == 0 ||
-          (startingTermCount == 1 && hasFixedContribution(terms[0]))
+          startingTermCount == 0 &&
+          endingTermCount == 1 &&
+          terms[0].frequency == 0
         ) {
-          // We are converting from a dot to something else.
-          const startingPoint = hasFixedContribution(terms[0]) ?? {
-            x: 0,
-            y: 0,
+          /**
+           * Special case:  A dot is moving.
+           *    Going from 0 terms to 1 term with frequency = zero.
+           *    Don't even think about the animation that we do in other places.
+           *    This script is completely unique.
+           *    Draw a single line for the path.
+           *    Both ends start at the first point.
+           *    Use makeEasing() to move the points smoothly.
+           */
+          const goal = assertNonNullable(hasFixedContribution(terms[0]));
+          /**
+           * @param t A value between 0 and 1.
+           * @returns The coordinates as a string.
+           */
+          function location(t: number) {
+            return `${goal.x * t},${goal.y * t}`;
+          }
+          const getLeadingProgress = makeEasing(0, 0.5);
+          const getTrailingProgress = makeEasing(0, 1);
+          return (t: number) => {
+            const trailingProgress = getTrailingProgress(t);
+            const from = location(trailingProgress);
+            const leadingProgress = getLeadingProgress(t);
+            const to = location(leadingProgress);
+            const pathString = `M ${from} L ${to}`;
+            // console.log({ t, trailingProgress, leadingProgress, pathString });
+            return pathString;
           };
-          return (timeInMs: number): string => {
-            const centerOfChange = tToCenter(timeInMs);
-            const startOfChange = centerOfChange - r;
-            const endOfChange = centerOfChange + r;
-            const getFraction = makeEasing(startOfChange, endOfChange);
-            /**
-             * 0 to `safePartEnds`, inclusive are safe inputs to `parametricFunction()`.
-             */
-            const safePartEnds = Math.min(1, endOfChange);
-            if (safePartEnds <= 0) {
-              // There is no safe part!
-              return `M${startingPoint.x},${startingPoint.y} L${startingPoint.x},${startingPoint.y}`;
-            } else {
-              const frugalSegmentCount = Math.ceil(
-                // TODO that 150 is crude.  The transition might require
-                // more detail than the before or the after.
-                // Or it might require less, not that we are glitch-free.
-                Math.max(numberOfDisplaySegments, 150) * safePartEnds
+        } else if (startingTermCount == endingTermCount) {
+          const parametricFunction = termsToParametricFunction(
+            terms,
+            startingTermCount
+          );
+          const numberOfDisplaySegments =
+            recommendedNumberOfSegments(endingTermCount);
+          const path = PathShape.glitchFreeParametric(
+            parametricFunction,
+            numberOfDisplaySegments
+          );
+          const result = path.rawPath;
+          return (_timeInMs: number): string => {
+            return result;
+          };
+        } else {
+          // TODO this should probably be the largest from the group that we are adding.
+          const firstInterestingFrequency = Math.abs(
+            terms[startingTermCount].frequency
+          );
+          const r = 0.2 / firstInterestingFrequency;
+          /**
+           * This creates a function which takes a time in milliseconds,
+           * 0 at the beginning of the script.
+           * The output is scaled to the range 0 - 1,
+           * for use with PathShape.parametric().
+           * The output might be outside of that range.
+           * I.e. the input and output are both numbers but they are interpreted on different scales.
+           */
+          const tToCenter = makeBoundedLinear(0, -r, 1, 1 + r);
+          const startingFunction = termsToParametricFunction(
+            terms,
+            startingTermCount
+          );
+          const addingFunction = termsToParametricFunction(
+            terms,
+            endingTermCount - startingTermCount,
+            startingTermCount
+          );
+          const numberOfDisplaySegments =
+            recommendedNumberOfSegments(endingTermCount);
+          if (
+            startingTermCount == 0 ||
+            (startingTermCount == 1 && hasFixedContribution(terms[0]))
+          ) {
+            // We are converting from a dot to something else.
+            const startingPoint = hasFixedContribution(terms[0]) ?? {
+              x: 0,
+              y: 0,
+            };
+            return (timeInMs: number): string => {
+              const centerOfChange = tToCenter(timeInMs);
+              const startOfChange = centerOfChange - r;
+              const endOfChange = centerOfChange + r;
+              const getFraction = makeEasing(startOfChange, endOfChange);
+              /**
+               * 0 to `safePartEnds`, inclusive are safe inputs to `parametricFunction()`.
+               */
+              const safePartEnds = Math.min(1, endOfChange);
+              if (safePartEnds <= 0) {
+                // There is no safe part!
+                return `M${startingPoint.x},${startingPoint.y} L${startingPoint.x},${startingPoint.y}`;
+              } else {
+                const frugalSegmentCount = Math.ceil(
+                  // TODO that 150 is crude.  The transition might require
+                  // more detail than the before or the after.
+                  // Or it might require less, not that we are glitch-free.
+                  Math.max(numberOfDisplaySegments, 150) * safePartEnds
+                );
+                function parametricFunction(t: number) {
+                  t = t * safePartEnds;
+                  const base = startingFunction(t);
+                  const fraction = 1 - getFraction(t);
+                  if (fraction == 0) {
+                    return base;
+                  } else {
+                    const adding = addingFunction(t);
+                    return {
+                      x: base.x + fraction * adding.x,
+                      y: base.y + fraction * adding.y,
+                    };
+                  }
+                }
+                const path = PathShape.glitchFreeParametric(
+                  parametricFunction,
+                  frugalSegmentCount
+                );
+                return path.rawPath;
+              }
+            };
+          } else {
+            // COMMON CASE:  Converting from one normal shape into another.
+            return (timeInMs: number): string => {
+              const centerOfChange = tToCenter(timeInMs);
+              const getFraction = makeEasing(
+                centerOfChange - r,
+                centerOfChange + r
               );
               function parametricFunction(t: number) {
-                t = t * safePartEnds;
                 const base = startingFunction(t);
                 const fraction = 1 - getFraction(t);
                 if (fraction == 0) {
@@ -297,117 +303,72 @@ class FourierBase {
               }
               const path = PathShape.glitchFreeParametric(
                 parametricFunction,
-                frugalSegmentCount
+                numberOfDisplaySegments
               );
               return path.rawPath;
-            }
-          };
-        } else {
-          // Common case:  Converting from one normal shape into another.
-          return (timeInMs: number): string => {
-            const centerOfChange = tToCenter(timeInMs);
-            const getFraction = makeEasing(
-              centerOfChange - r,
-              centerOfChange + r
-            );
-            function parametricFunction(t: number) {
-              const base = startingFunction(t);
-              const fraction = 1 - getFraction(t);
-              if (fraction == 0) {
-                return base;
-              } else {
-                const adding = addingFunction(t);
-                return {
-                  x: base.x + fraction * adding.x,
-                  y: base.y + fraction * adding.y,
-                };
-              }
-            }
-            const path = PathShape.glitchFreeParametric(
-              parametricFunction,
-              numberOfDisplaySegments
-            );
-            return path.rawPath;
-          };
+            };
+          }
         }
       }
-    });
-    function getPath2(index: number, t: number) {
-      const info = segmentInfo[index];
-      return info(t);
-    }
-    return getPath2;
+    );
+    return result;
   }
 }
 
-class FourierAnimation implements Showable {
-  hide() {
-    this.destination.hide();
-  }
-  readonly #showPath: (timeInMs: number) => void;
-  show(timeInMs: number) {
-    this.#showPath(timeInMs);
-  }
-  readonly duration: number;
-  static readonly PERIOD = 7000;
-  static readonly PAUSE = 1000;
-  constructor(
-    readonly timer: Timer,
-    private readonly destination: Destination,
-    base: FourierBase
-  ) {
-    this.duration = timer.endTime;
-    const getPath = base.makeGetPath1(this.timer);
-    this.#showPath = (timeInMs: number) => {
-      const pathString = getPath(timeInMs);
-      this.destination.show(pathString);
-    };
-  }
+function createFourierAnimation(
+  destination: Destination,
+  base: FourierBase
+): Showable {
+  /**
+   * Just the time when the curve is moving.
+   * Does not include the pauses.
+   */
+  const PLAY_DURATION = 4000;
+  const PAUSE_BEFORE_FIRST = 0;
+  const PAUSE_BETWEEN = 500;
+  const PAUSE_AFTER_LAST = 500;
+  const pieces = base
+    .makeGetPath2()
+    .map((pathGetter, index, array): Showable => {
+      function hide() {
+        destination.hide();
+      }
+      const isFirst = index == 0;
+      const frozenBefore = isFirst ? PAUSE_BEFORE_FIRST : PAUSE_BETWEEN;
+      const isLast = index + 1 == array.length;
+      const frozenAfter = isLast ? PAUSE_AFTER_LAST : 0;
+      function show(timeInMS: number) {
+        const progress = timeInMS / PLAY_DURATION;
+        const rawPathString = pathGetter(progress);
+        destination.show(rawPathString);
+      }
+      return addMargins(
+        { show, hide, duration: PLAY_DURATION },
+        { frozenBefore, frozenAfter }
+      );
+    });
+  return makeShowableInSeries(pieces);
 }
 
 const fourierBase = new FourierBase(rawPathString);
 {
   fourierBase.keyframes.length = 0;
   fourierBase.keyframes.push(2, 3, 6, 9, 12);
-  const fourierAnimation = new FourierAnimation(
-    new Timer(
-      fourierBase.numberOfSteps,
-      FourierAnimation.PERIOD,
-      FourierAnimation.PAUSE
-    ),
-    destinations[0],
-    fourierBase
-  );
+  const fourierAnimation = createFourierAnimation(destinations[0], fourierBase);
   builder.add(fourierAnimation);
 }
 
 {
   fourierBase.keyframes.length = 0;
-  fourierBase.keyframes.push(25, 31, 43, 50, 75);
-  const fourierAnimation = new FourierAnimation(
-    new Timer(
-      fourierBase.numberOfSteps,
-      FourierAnimation.PERIOD,
-      FourierAnimation.PAUSE
-    ),
-    destinations[1],
-    fourierBase
-  );
+  fourierBase.keyframes.push(12, 25, 31, 43, 50);
+  const fourierAnimation = createFourierAnimation(destinations[1], fourierBase);
   builder.add(fourierAnimation);
 }
 
 {
   fourierBase.keyframes.length = 0;
-  fourierBase.keyframes.push(75, 100, 120, 150, 1000);
-  const fourierAnimation = new FourierAnimation(
-    new Timer(
-      fourierBase.numberOfSteps,
-      FourierAnimation.PERIOD,
-      FourierAnimation.PAUSE
-    ),
-    destinations[2],
-    fourierBase
-  );
+  fourierBase.keyframes.push(50, 75, 100, 150, 1000);
+  const fourierAnimation = createFourierAnimation(destinations[2], fourierBase);
   builder.add(fourierAnimation);
 }
 

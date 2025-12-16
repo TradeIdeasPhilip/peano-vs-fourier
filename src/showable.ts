@@ -125,9 +125,6 @@ export class MakeShowableInSeries {
     this.#used = true;
     const duration = this.duration;
     const show = (timeInMs: number) => {
-      // TODO this is wrong.  We should not be calling hide from show.
-      // We should be asserting that someone else called hide.
-      // Required before each call to show().
       let toShowNow: (() => void) | undefined;
       this.#toShow.forEach(({ start, showable }) => {
         const localTime = timeInMs - start;
@@ -139,6 +136,8 @@ export class MakeShowableInSeries {
         }
         showable.hide();
       });
+      // Do all of the hides() first, before doing the only show().
+      // The Showable children might all configure the same DOM element.
       toShowNow?.();
     };
     const hide = () => {

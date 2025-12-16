@@ -164,7 +164,6 @@ g.handwriting > path {
 
 [data-fi] {
   fill: none;
-  stroke-width: 0.05;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
@@ -172,14 +171,17 @@ g.handwriting > path {
 [data-fi="1"] {
   stroke: red;
   transform: translateX(0px) translateY(1.25px);
+  stroke-width: 0.06;
 }
 [data-fi="2"] {
   stroke: white;
   transform: translateX(5.5px) translateY(1.25px);
+  stroke-width: 0.04;
 }
 [data-fi="3"] {
   stroke: var(--blue);
   transform: translateX(11px) translateY(1.25px);
+  stroke-width: 0.02;
 }
 
 #handwriting-less-detail {
