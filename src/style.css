@@ -164,7 +164,7 @@ g.handwriting > path {
 
 [data-fi] {
   fill: none;
-  stroke-width: 0.5;
+  stroke-width: 0.05;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
