@@ -1,4 +1,4 @@
-import { getById, querySelector, querySelectorAll } from "phil-lib/client-misc";
+import { getById } from "phil-lib/client-misc";
 import "./style.css";
 import { MainAnimation } from "./main-animation";
 import { makeAutoHider, makeShowableInSeries } from "./showable";

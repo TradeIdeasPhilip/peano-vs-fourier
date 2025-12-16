@@ -1,4 +1,4 @@
-import { getById, querySelector, querySelectorAll } from "phil-lib/client-misc";
+import { getById, querySelectorAll } from "phil-lib/client-misc";
 import {
   assertNonNullable,
   initializedArray,
@@ -99,13 +99,13 @@ class Timer {
   #remainderToT: LinearFunction;
   readonly endTime: number;
   constructor(
-    private readonly stepCount: number,
+    private readonly numberOfSteps: number,
     private readonly period: number,
     startTime = 0,
     endTime = period - startTime
   ) {
     this.#remainderToT = makeBoundedLinear(startTime, 0, endTime, 1);
-    this.endTime = period * stepCount;
+    this.endTime = period * numberOfSteps;
   }
   get(timeInMs: number) {
     let index = Math.floor(timeInMs / this.period);
@@ -113,8 +113,8 @@ class Timer {
     if (index < 0) {
       index = 0;
       remainder = 0;
-    } else if (index >= this.stepCount) {
-      index = this.stepCount - 1;
+    } else if (index >= this.numberOfSteps) {
+      index = this.numberOfSteps - 1;
       remainder = this.period;
     } else {
       remainder = timeInMs % this.period;
@@ -145,7 +145,7 @@ class FourierBase {
     });
     return result;
   }
-  get stepCount() {
+  get numberOfSteps() {
     return this.keyframes.length - 1;
   }
   makeGetPath1(timer: Timer): (timeInMs: number) => string {
@@ -157,10 +157,10 @@ class FourierBase {
     }
     return getPath1;
   }
-  makeGetPath2(): (index: number, t: number) => string {
+  private makeGetPath2(): (index: number, t: number) => string {
     const terms = [...this.terms];
     const toShow = [...this.keyframes];
-    const stepCount = this.stepCount;
+    const numberOfSteps = this.numberOfSteps;
     /**
      * Special case:  A dot is moving.
      *    Going from 0 terms to 1 term with frequency = zero.
@@ -184,7 +184,7 @@ class FourierBase {
         return 8 * Math.min(maxFrequency, 50) + 7;
       }
     };
-    const segmentInfo = initializedArray(stepCount, (index) => {
+    const segmentInfo = initializedArray(numberOfSteps, (index) => {
       const startingTermCount = toShow[index];
       const endingTermCount = toShow[index + 1];
       if (
@@ -366,11 +366,49 @@ class FourierAnimation implements Showable {
 }
 
 const fourierBase = new FourierBase(rawPathString);
-const fourierAnimation = new FourierAnimation(
-  new Timer(10, FourierAnimation.PERIOD, FourierAnimation.PAUSE),
-  destinations[0],
-  fourierBase
-);
-builder.add(fourierAnimation);
+{
+  fourierBase.keyframes.length = 0;
+  fourierBase.keyframes.push(2, 3, 6, 9, 12);
+  const fourierAnimation = new FourierAnimation(
+    new Timer(
+      fourierBase.numberOfSteps,
+      FourierAnimation.PERIOD,
+      FourierAnimation.PAUSE
+    ),
+    destinations[0],
+    fourierBase
+  );
+  builder.add(fourierAnimation);
+}
+
+{
+  fourierBase.keyframes.length = 0;
+  fourierBase.keyframes.push(25, 31, 43, 50, 75);
+  const fourierAnimation = new FourierAnimation(
+    new Timer(
+      fourierBase.numberOfSteps,
+      FourierAnimation.PERIOD,
+      FourierAnimation.PAUSE
+    ),
+    destinations[1],
+    fourierBase
+  );
+  builder.add(fourierAnimation);
+}
+
+{
+  fourierBase.keyframes.length = 0;
+  fourierBase.keyframes.push(75, 100, 120, 150, 1000);
+  const fourierAnimation = new FourierAnimation(
+    new Timer(
+      fourierBase.numberOfSteps,
+      FourierAnimation.PERIOD,
+      FourierAnimation.PAUSE
+    ),
+    destinations[2],
+    fourierBase
+  );
+  builder.add(fourierAnimation);
+}
 
 export const fourierIntro: Showable = commonHider(builder.build(), topElement);
