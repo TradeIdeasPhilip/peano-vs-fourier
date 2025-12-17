@@ -4,13 +4,15 @@ import { MainAnimation } from "./main-animation";
 import { makeAutoHider, makeShowableInSeries } from "./showable";
 import { peanoIterations } from "./peano-iterations";
 import { fourierIntro } from "./fourier-intro";
+import { peanoFourier } from "./peano-fourier";
 
 new MainAnimation(
   makeShowableInSeries([
-    fourierIntro,
+    peanoFourier,
     makeAutoHider(1000, getById("placeholder1", SVGTextElement)),
-    peanoIterations,
+    fourierIntro,
     makeAutoHider(5000, getById("placeholder2", SVGTextElement)),
+    peanoIterations,
   ]),
   "peano-vs-fourier"
 );

@@ -17,11 +17,13 @@ import { Font } from "./glib/letters-base";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { createHandwriting } from "./glib/handwriting";
 import {
-  Complex,
+  Destination,
   FourierTerm,
   hasFixedContribution,
+  numberOfFourierSamples,
   samplesFromPath,
   samplesToFourier,
+  simpleDestination,
   termsToParametricFunction,
 } from "./fourier-shared";
 import { ease } from "./utility";
@@ -47,21 +49,6 @@ const builder = new MakeShowableInParallel();
 builder.addJustified(makeHandwriting("Less detail", "handwriting-less-detail"));
 builder.addJustified(makeHandwriting("Some detail", "handwriting-some-detail"));
 builder.addJustified(makeHandwriting("More detail", "handwriting-more-detail"));
-
-const numberOfFourierSamples = 1024;
-
-type Destination = { hide(): void; show(rawPathString: string): void };
-
-function simpleDestination(pathElement: SVGPathElement) {
-  return {
-    hide() {
-      pathElement.setAttribute("d", "");
-    },
-    show(rawPathString: string) {
-      pathElement.setAttribute("d", rawPathString);
-    },
-  };
-}
 
 /**
  * source:  https://commons.wikimedia.org/wiki/File:Silhouette_of_a_walking_man.svg

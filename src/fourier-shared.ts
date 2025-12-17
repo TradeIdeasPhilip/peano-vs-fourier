@@ -358,3 +358,18 @@ export function samplesFromPath(
     return samplesFromPathOrig(pathString, numberOfTerms);
   }
 }
+
+export const numberOfFourierSamples = 1024;
+
+export type Destination = { hide(): void; show(rawPathString: string): void };
+
+export function simpleDestination(pathElement: SVGPathElement) {
+  return {
+    hide() {
+      pathElement.setAttribute("d", "");
+    },
+    show(rawPathString: string) {
+      pathElement.setAttribute("d", rawPathString);
+    },
+  };
+}
