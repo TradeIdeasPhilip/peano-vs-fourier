@@ -11,11 +11,7 @@ import {
 import { createHandwriting } from "./glib/handwriting";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { LCommand, PathShape } from "./glib/path-shape";
-import {
-  assertFinite,
-  initializedArray,
-  makeLinear,
-} from "phil-lib/misc";
+import { assertFinite, initializedArray, makeLinear } from "phil-lib/misc";
 
 const mainSVG = getById("peano-iterations", SVGGElement);
 const font = Font.cursive(0.37);
@@ -290,7 +286,7 @@ function createExpander(
       stroke: [from.color, ...midColors, to.color],
       d: [fromPath.cssPath, toPath.cssPath],
     },
-    duration,
+    duration - frozenBefore - frozenAfter,
     "ease-out"
   );
   pathElement.style.transform = "translate(0.5px, 1.5px) scale(7)";
