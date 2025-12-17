@@ -74,6 +74,7 @@ export class MainAnimation {
    */
   constructor(showable: Showable, readonly source: string) {
     this.#showable = showable;
+    showable.hide();
 
     (window as any).showFrame = (timeInMs: number) => {
       this.show(timeInMs);
@@ -95,7 +96,7 @@ export class MainAnimation {
           timeOffset = now;
         }
         const time = now - timeOffset;
-        this.show(time);
+        this.show(time % this.#showable.duration);
       });
     }, 1);
   }

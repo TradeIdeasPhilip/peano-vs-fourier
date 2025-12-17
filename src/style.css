@@ -213,3 +213,25 @@ g.handwriting > path {
   transform: translateX(5px) translateY(0.18px) scale(3) !important;
   stroke-width: 0.03333;
 }
+
+[data-pf] {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+[data-pf="1"] {
+  stroke: red;
+  transform: translateX(0px) translateY(1.25px);
+  stroke-width: 0.06;
+}
+[data-pf="2"] {
+  stroke: white;
+  transform: translateX(5.5px) translateY(1.25px);
+  stroke-width: 0.04;
+}
+[data-pf="3"] {
+  stroke: var(--blue);
+  transform: translateX(11px) translateY(1.25px);
+  stroke-width: 0.02;
+}
