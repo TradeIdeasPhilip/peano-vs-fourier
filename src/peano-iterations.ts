@@ -6,11 +6,16 @@ import {
   MakeShowableInParallel,
   MakeShowableInSeries,
   Showable,
+  wrapAnimation,
 } from "./showable";
 import { createHandwriting } from "./glib/handwriting";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { LCommand, PathShape } from "./glib/path-shape";
-import { assertFinite, initializedArray, makeLinear } from "phil-lib/misc";
+import {
+  assertFinite,
+  initializedArray,
+  makeLinear,
+} from "phil-lib/misc";
 
 const mainSVG = getById("peano-iterations", SVGGElement);
 const font = Font.cursive(0.37);
@@ -173,8 +178,8 @@ function createPeanoPath(iteration: number, size = 1) {
  */
 function createExpander(
   duration: number,
-  delay: number,
-  endDelay: number,
+  frozenBefore: number,
+  frozenAfter: number,
   from: { iteration: number; color: string; strokeWidth: string },
   to: { iteration: number; color: string; strokeWidth: string },
   midColors: string[] = []
@@ -278,34 +283,22 @@ function createExpander(
     "http://www.w3.org/2000/svg",
     "path"
   );
-  const animation = pathElement.animate(
+  const animation = wrapAnimation(
+    pathElement,
     {
       strokeWidth: [from.strokeWidth, to.strokeWidth],
       stroke: [from.color, ...midColors, to.color],
       d: [fromPath.cssPath, toPath.cssPath],
     },
-    {
-      fill: "both",
-      duration: duration - delay - endDelay,
-      easing: "ease-out",
-    }
+    duration,
+    "ease-out"
   );
-  animation.pause();
   pathElement.style.transform = "translate(0.5px, 1.5px) scale(7)";
   pathElement.style.strokeLinecap = "square";
   pathElement.style.fill = "none";
   pathElement.style.strokeWidth = "0.05";
   mainSVG.append(pathElement);
-  return {
-    duration,
-    show(timeInMs) {
-      pathElement.style.display = "";
-      animation.currentTime = timeInMs - delay;
-    },
-    hide() {
-      pathElement.style.display = "none";
-    },
-  };
+  return addMargins(animation, { frozenBefore, frozenAfter });
 }
 const state1 = { iteration: 1, color: "red", strokeWidth: "0.045" };
 const state2 = {

@@ -292,3 +292,33 @@ export function makeAutoHider(
 export function commonHider(base: Showable, element: HTMLElement | SVGElement) {
   return makeAutoHider(base.duration, element, base.show.bind(base));
 }
+
+/**
+ * Create a Showable which is a wrapper around element.animate().
+ * @param element The element to animate.
+ * @param keyframes The keyframes to apply.
+ * @param duration In milliseconds
+ * @param easing Defaults to linear.
+ */
+export function wrapAnimation(
+  element: Element,
+  keyframes: Keyframe[] | PropertyIndexedKeyframes,
+  duration: number,
+  easing = ""
+): Showable {
+  const animation = element.animate(keyframes, {
+    duration,
+    easing,
+    fill: "forwards",
+  });
+  animation.pause();
+  return {
+    duration,
+    hide() {
+      animation.currentTime = -1;
+    },
+    show(timeInMs) {
+      animation.currentTime = timeInMs;
+    },
+  };
+}
