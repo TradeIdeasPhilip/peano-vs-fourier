@@ -52,9 +52,9 @@ export class MakeShowableInParallel {
    * This will add an item and it will extend the last frame to the end of the composite Showable object.
    * @param showable To be added.
    */
-  addJustified(showable: Showable) {
+  addJustified(showable: Showable, startAtMs = 0) {
     this.add(
-      addMargins(showable, { frozenAfter: Infinity }),
+      addMargins(showable, { hiddenBefore: startAtMs, frozenAfter: Infinity }),
       showable.duration
     );
   }
@@ -304,7 +304,7 @@ export function wrapAnimation(
   element: Element,
   keyframes: Keyframe[] | PropertyIndexedKeyframes,
   duration: number,
-  easing = ""
+  easing = "linear"
 ): Showable {
   const animation = element.animate(keyframes, {
     duration,

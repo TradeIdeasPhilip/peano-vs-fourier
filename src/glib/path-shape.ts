@@ -1813,7 +1813,7 @@ export class PathShape {
     initialSegments: number,
     recursionCount: number
   ): PathShape | undefined {
-    if (recursionCount > 0) {
+    if (recursionCount > 2) {
       console.log(recursionCount);
     }
     if (recursionCount >= 4) {

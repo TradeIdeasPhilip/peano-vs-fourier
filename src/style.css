@@ -218,20 +218,52 @@ g.handwriting > path {
   fill: none;
   stroke-linejoin: round;
   stroke-linecap: round;
+  will-change: contents;
 }
 
 [data-pf="1"] {
   stroke: red;
-  transform: translateX(3px) translateY(6px);
+  transform: translateX(3px) translateY(6.5px);
   stroke-width: 0.06;
+}
+#pf2-container {
+  transform: translateX(8px) translateY(6.5px);
 }
 [data-pf="2"] {
   stroke: white;
-  transform: translateX(8px) translateY(6px);
   stroke-width: 0.04;
 }
 [data-pf="3"] {
   stroke: var(--blue);
-  transform: translateX(13px) translateY(6px);
+  transform: translateX(13px) translateY(6.5px);
   stroke-width: 0.02;
+}
+
+[data-pf-ideal] {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+[data-pf-ideal="1"] {
+  stroke: red;
+  transform: translateX(3px) translateY(2px) scale(0.75);
+  stroke-width: 0.06;
+}
+[data-pf-ideal="2"] {
+  stroke: white;
+  transform: translateX(8px) translateY(2px) scale(0.75);
+  stroke-width: 0.04;
+}
+[data-pf-ideal="3"] {
+  stroke: var(--blue);
+  transform: translateX(13px) translateY(2px) scale(0.75);
+  stroke-width: 0.02;
+}
+
+#peano-fourier-debugger {
+  fill: greenyellow;
+  font-size: 1px;
+  transform: translateY(1px);
+  display: none;
 }

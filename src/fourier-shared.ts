@@ -7,7 +7,22 @@ import {
   PathCaliper,
   Point,
 } from "./glib/path-shape";
-import { initializedArray, lerp, Random, sum } from "phil-lib/misc";
+import {
+  assertNonNullable,
+  initializedArray,
+  lerp,
+  makeBoundedLinear,
+  makeLinear,
+  Random,
+  sum,
+} from "phil-lib/misc";
+import {
+  addMargins,
+  MakeShowableInSeries,
+  makeShowableInSeries,
+  Showable,
+} from "./showable";
+import { ease } from "./utility";
 
 const sharedCaliper = new PathCaliper();
 
@@ -314,6 +329,7 @@ export function samplesFromPath(
       }
     }
     const result = new Array<Complex>();
+    console.log(lengths);
     lengths.forEach(({ length, numberOfVertices, path }) => {
       if (numberOfVertices > 0) {
         caliper.d = path.rawPath;
@@ -372,4 +388,310 @@ export function simpleDestination(pathElement: SVGPathElement) {
       pathElement.setAttribute("d", rawPathString);
     },
   };
+}
+
+// TODO add in y1 and y2, rather than just assuming they are 0 and 1.
+function makeEasing(x1: number, x2: number) {
+  if (x1 >= x2) {
+    throw new Error("wtf");
+  }
+  const inputMap = makeLinear(x1, 0, x2, 1);
+  function customEasing(t: number) {
+    if (t <= x1) {
+      return 0;
+    } else if (t >= x2) {
+      return 1;
+    }
+    const input = inputMap(t);
+    const eased = ease(input);
+    return eased;
+  }
+  return customEasing;
+}
+
+/**
+ * This does a lot of one time setup for displaying all of the animations.
+ * The return value hides a lot of internal state.
+ *
+ * @returns An array of functions each of which take progress of 0-1 as input and return a path string.
+ *
+ * Note that there is one entry in the array for each _transition_.
+ * Fencepost!
+ * The number of transitions is one less than the number of states.
+ */
+export function getAnimationRules(
+  terms: string | FourierTerm[],
+  keyframes: readonly number[]
+): ((progress: number) => string)[] {
+  // In principal this could be adapted to transition from any curve to any other curve.
+  // Currently this function has some details that are specific to Fourier.
+  // 1) This includes an optimization.  We know that the two paths are related.
+  //    The second path includes more terms than the first, but a superset.
+  //    So we reuse the result of the first instead of computing the second from scratch.
+  // 2) Starting or ending with a single point causes some special cases.
+  //    We currently detect these cases based on the Fourier terms.
+  // 3) We need to decide how much space is given to the transition between the two functions.
+  //    The current logic is very specific to the Fourier series.
+  // 4) We need to tell PathShape.glitchFreeParametric() how many segments to use.
+  //    This depends how complicated the path is.
+  //    The current logic for this is based on the Fourier terms.
+  if (typeof terms === "string") {
+    const samples = samplesFromPath(terms, numberOfFourierSamples);
+    terms = samplesToFourier(samples);
+  } else {
+    terms = [...terms];
+  }
+  keyframes = [...keyframes];
+  const numberOfSteps = keyframes.length - 1;
+  const getMaxFrequency = (numberOfTerms: number) => {
+    const maxFrequency = Math.max(
+      ...terms.slice(0, numberOfTerms).map((term) => Math.abs(term.frequency))
+    );
+    return maxFrequency;
+  };
+  const recommendedNumberOfSegments = (numberOfTerms: number) => {
+    if (numberOfTerms == 0) {
+      return 8;
+    } else {
+      const maxFrequency = getMaxFrequency(numberOfTerms);
+      return 8 * Math.min(maxFrequency, 110) + 7;
+    }
+  };
+  const result: ((t: number) => string)[] = initializedArray(
+    numberOfSteps,
+    (index) => {
+      const startingTermCount = keyframes[index];
+      const endingTermCount = keyframes[index + 1];
+      if (
+        startingTermCount == 0 &&
+        endingTermCount == 1 &&
+        terms[0].frequency == 0
+      ) {
+        /**
+         * Special case:  A dot is moving.
+         *    Going from 0 terms to 1 term with frequency = zero.
+         *    Don't even think about the animation that we do in other places.
+         *    This script is completely unique.
+         *    Draw a single line for the path.
+         *    Both ends start at the first point.
+         *    Use makeEasing() to move the points smoothly.
+         */
+        const goal = assertNonNullable(hasFixedContribution(terms[0]));
+        /**
+         * @param t A value between 0 and 1.
+         * @returns The coordinates as a string.
+         */
+        function location(t: number) {
+          return `${goal.x * t},${goal.y * t}`;
+        }
+        const getLeadingProgress = makeEasing(0, 0.5);
+        const getTrailingProgress = makeEasing(0, 1);
+        return (t: number) => {
+          const trailingProgress = getTrailingProgress(t);
+          const from = location(trailingProgress);
+          const leadingProgress = getLeadingProgress(t);
+          const to = location(leadingProgress);
+          const pathString = `M ${from} L ${to}`;
+          // console.log({ t, trailingProgress, leadingProgress, pathString });
+          return pathString;
+        };
+      } else if (startingTermCount == endingTermCount) {
+        const parametricFunction = termsToParametricFunction(
+          terms,
+          startingTermCount
+        );
+        const numberOfDisplaySegments =
+          recommendedNumberOfSegments(endingTermCount);
+        const path = PathShape.glitchFreeParametric(
+          parametricFunction,
+          numberOfDisplaySegments
+        );
+        const result = path.rawPath;
+        return (_timeInMs: number): string => {
+          return result;
+        };
+      } else {
+        // TODO this should probably be the largest from the group that we are adding.
+        const firstInterestingFrequency = Math.abs(
+          terms[startingTermCount].frequency
+        );
+        const r = 0.2 / firstInterestingFrequency;
+        /**
+         * This creates a function which takes a time in milliseconds,
+         * 0 at the beginning of the script.
+         * The output is scaled to the range 0 - 1,
+         * for use with PathShape.parametric().
+         * The output might be outside of that range.
+         * I.e. the input and output are both numbers but they are interpreted on different scales.
+         */
+        const tToCenter = makeBoundedLinear(0, -r, 1, 1 + r);
+        const startingFunction = termsToParametricFunction(
+          terms,
+          startingTermCount
+        );
+        const addingFunction = termsToParametricFunction(
+          terms,
+          endingTermCount - startingTermCount,
+          startingTermCount
+        );
+        const numberOfDisplaySegments =
+          recommendedNumberOfSegments(endingTermCount);
+        if (
+          startingTermCount == 0 ||
+          (startingTermCount == 1 && hasFixedContribution(terms[0]))
+        ) {
+          // We are converting from a dot to something else.
+          const startingPoint = hasFixedContribution(terms[0]) ?? {
+            x: 0,
+            y: 0,
+          };
+          return (timeInMs: number): string => {
+            const centerOfChange = tToCenter(timeInMs);
+            const startOfChange = centerOfChange - r;
+            const endOfChange = centerOfChange + r;
+            const getFraction = makeEasing(startOfChange, endOfChange);
+            /**
+             * 0 to `safePartEnds`, inclusive are safe inputs to `parametricFunction()`.
+             */
+            const safePartEnds = Math.min(1, endOfChange);
+            if (safePartEnds <= 0) {
+              // There is no safe part!
+              return `M${startingPoint.x},${startingPoint.y} L${startingPoint.x},${startingPoint.y}`;
+            } else {
+              const frugalSegmentCount = Math.ceil(
+                // TODO that 150 is crude.  The transition might require
+                // more detail than the before or the after.
+                // Or it might require less, not that we are glitch-free.
+                Math.max(numberOfDisplaySegments, 150) * safePartEnds
+              );
+              function parametricFunction(t: number) {
+                t = t * safePartEnds;
+                const base = startingFunction(t);
+                const fraction = 1 - getFraction(t);
+                if (fraction == 0) {
+                  return base;
+                } else {
+                  const adding = addingFunction(t);
+                  return {
+                    x: base.x + fraction * adding.x,
+                    y: base.y + fraction * adding.y,
+                  };
+                }
+              }
+              const path = PathShape.glitchFreeParametric(
+                parametricFunction,
+                frugalSegmentCount
+              );
+              return path.rawPath;
+            }
+          };
+        } else {
+          // COMMON CASE:  Converting from one normal shape into another.
+          return (timeInMs: number): string => {
+            const centerOfChange = tToCenter(timeInMs);
+            const getFraction = makeEasing(
+              centerOfChange - r,
+              centerOfChange + r
+            );
+            function parametricFunction(t: number) {
+              const base = startingFunction(t);
+              const fraction = 1 - getFraction(t);
+              if (fraction == 0) {
+                return base;
+              } else {
+                const adding = addingFunction(t);
+                return {
+                  x: base.x + fraction * adding.x,
+                  y: base.y + fraction * adding.y,
+                };
+              }
+            }
+            const path = PathShape.glitchFreeParametric(
+              parametricFunction,
+              numberOfDisplaySegments
+            );
+            return path.rawPath;
+          };
+        }
+      }
+    }
+  );
+  return result;
+}
+
+/**
+ * Just the time when the curve is moving.
+ * Does not include the pauses.
+ */
+const PLAY_DURATION = 4000;
+const PAUSE_BEFORE_FIRST = 0;
+const PAUSE_BETWEEN = 500;
+const PAUSE_AFTER_LAST = 500;
+
+/**
+ * Attach the given `animationRules` to `destination` to create a Showable animation.
+ * @param destination Where to display the output.
+ * @param animationRules The curves to draw at different times.
+ * @returns
+ */
+export function createFourierAnimation(
+  destination: Destination,
+  animationRules: readonly ((t: number) => string)[]
+): Showable {
+  const pieces = animationRules.map((pathGetter, index, array): Showable => {
+    function hide() {
+      destination.hide();
+    }
+    const isFirst = index == 0;
+    const frozenBefore = isFirst ? PAUSE_BEFORE_FIRST : PAUSE_BETWEEN;
+    const isLast = index + 1 == array.length;
+    const frozenAfter = isLast ? PAUSE_AFTER_LAST : 0;
+    function show(timeInMS: number) {
+      const progress = timeInMS / PLAY_DURATION;
+      const rawPathString = pathGetter(progress);
+      destination.show(rawPathString);
+    }
+    return addMargins(
+      { show, hide, duration: PLAY_DURATION },
+      { frozenBefore, frozenAfter }
+    );
+  });
+  return makeShowableInSeries(pieces);
+}
+
+export function createFourierTracker(
+  textElement: SVGTextElement,
+  keyframes: readonly number[]
+) {
+  const builder = new MakeShowableInSeries();
+  function hide() {
+    textElement.textContent = "";
+  }
+  keyframes.forEach((startValue, index, array) => {
+    const isFirst = index == 0;
+    const isLast = index + 1 == array.length;
+    const frozenTime = isFirst
+      ? PAUSE_BEFORE_FIRST
+      : isLast
+      ? PAUSE_AFTER_LAST
+      : PAUSE_BETWEEN;
+    builder.add({
+      duration: frozenTime,
+      show(timeInMS: number) {
+        textElement.textContent = `#${index}, ${startValue}`;
+      },
+      hide,
+    });
+    if (!isLast) {
+      const endValue = array[index + 1];
+      builder.add({
+        duration: PLAY_DURATION,
+        show(timeInMs) {
+          textElement.textContent = `#${index}, ${startValue} - ${endValue}`;
+        },
+        hide,
+      });
+    }
+  });
+  return builder.build();
 }

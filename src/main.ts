@@ -1,18 +1,27 @@
-import { getById } from "phil-lib/client-misc";
 import "./style.css";
 import { MainAnimation } from "./main-animation";
-import { makeAutoHider, makeShowableInSeries } from "./showable";
+import { makeShowableInSeries, Showable } from "./showable";
 import { peanoIterations } from "./peano-iterations";
 import { fourierIntro } from "./fourier-intro";
 import { peanoFourier } from "./peano-fourier";
 
-new MainAnimation(
-  makeShowableInSeries([
-    peanoFourier,
-    makeAutoHider(1000, getById("placeholder1", SVGTextElement)),
-    fourierIntro,
-    makeAutoHider(5000, getById("placeholder2", SVGTextElement)),
-    peanoIterations,
-  ]),
+/*
+const peanoFourierShort :Showable = { duration:30000, show(timeInMs) {
+  peanoFourier.show(timeInMs+30000);
+},hide() {
+  peanoFourier.hide();
+},}
+*/
+
+const mainAnimation = new MainAnimation(
+  makeShowableInSeries([peanoIterations, fourierIntro, peanoFourier]),
   "peano-vs-fourier"
 );
+
+/*
+setTimeout(() => {
+  mainAnimation.disableAnimationLoop();
+  mainAnimation.show((2 * 60 + 21 + 18 / 30) * 1000);
+  //  mainAnimation.show(28500 + 4500 * 79);
+}, 500);
+*/
